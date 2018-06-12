@@ -1,0 +1,44 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"strconv"
+)
+
+type intSlice []int
+type stringSlice []string
+
+func (i *intSlice) String() string {
+	return fmt.Sprintf("%d", *i)
+}
+
+func (i *stringSlice) String() string {
+	return fmt.Sprint(*i)
+}
+
+func (i *intSlice) Set(value string) error {
+	tmp, err := strconv.Atoi(value)
+	if err != nil {
+		*i = append(*i, -1)
+	} else {
+		*i = append(*i, tmp)
+	}
+	return nil
+}
+
+func (i *stringSlice) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
+func initFlags() (stringSlice, intSlice) {
+	var tokens stringSlice
+	var timeouts intSlice
+
+	flag.Var(&tokens, "t", "Bot token")
+	flag.Var(&timeouts, "timeout", "Poller timeout in seconds")
+	flag.Parse()
+
+	return tokens, timeouts
+}
