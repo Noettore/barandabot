@@ -3,22 +3,23 @@ package main
 import (
 	"time"
 
+	"github.com/go-redis/redis"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
-func botInit() ([]*tb.Bot, []error) {
+func botInit(redisClient *redis.Client) ([]*tb.Bot, []error) {
 	var bots []*tb.Bot
 	var errors []error
-	for i, token := range tokens {
-		var timeout int
-		if i < len(timeouts) {
-			timeout = timeouts[i]
-		} else {
-			timeout = 10
-		}
+
+	tokens, err := getBotTokens(redisClient)
+	if err != nil {
+
+	}
+
+	for _, token := range tokens {
 		tmpBot, tmpErr := tb.NewBot(tb.Settings{
 			Token:  token,
-			Poller: &tb.LongPoller{Timeout: time.Duration(timeout) * time.Second},
+			Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 		})
 
 		bots = append(bots, tmpBot)

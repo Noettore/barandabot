@@ -22,11 +22,11 @@ func getFlags() (flags, error) {
 	)
 
 	flag.StringVar(&(cmdFlags.redisAddr), "redisAddr", defaultAddr, addrUsage)
-	flag.StringVar(&(cmdFlags.redisAddr), "a", defaultAddr, addrUsage+("shorthand"))
+	flag.StringVar(&(cmdFlags.redisAddr), "a", defaultAddr, addrUsage+"(shorthand)")
 	flag.StringVar(&(cmdFlags.redisPwd), "redisPwd", defaultPwd, pwdUsage)
-	flag.StringVar(&(cmdFlags.redisPwd), "p", defaultPwd, pwdUsage+("shorthand"))
+	flag.StringVar(&(cmdFlags.redisPwd), "p", defaultPwd, pwdUsage+"(shorthand)")
 	flag.IntVar(&(cmdFlags.redisDB), "redisDB", defaultDB, dbUsage)
-	flag.IntVar(&(cmdFlags.redisDB), "d", defaultDB, dbUsage+("shorthand"))
+	flag.IntVar(&(cmdFlags.redisDB), "d", defaultDB, dbUsage+"(shorthand)")
 
 	flag.Parse()
 
