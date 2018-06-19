@@ -2,26 +2,27 @@ package main
 
 import (
 	"log"
-
-	"github.com/go-redis/redis"
-)
-
-var (
-	redisClient *redis.Client
 )
 
 func main() {
 
-	cmdFlags, err := getFlags()
+	err := getFlags()
 	if err != nil {
 		log.Fatalln("Error in parsing command line flags. Abort!")
 	}
 
-	redisClient, err = redisInit(cmdFlags.redisAddr, cmdFlags.redisPwd, cmdFlags.redisDB)
+	err = redisInit(cmdFlags.redisAddr, cmdFlags.redisPwd, cmdFlags.redisDB)
 	defer redisClient.Close()
 	if err != nil {
 		log.Fatalf("Error in initializing redis instance: %v", err)
 	}
 
-	mainMenu()
+	if cmdFlags.interactive {
+		mainMenu()
+	} else if cmdFlags.tokens != nil {
+		err = addBotTokens(redisClient, cmdFlags.tokens)
+		if err == ErrAddToken {
+			log.Printf("Error in adding bot tokens: %v", err)
+		}
+	}
 }

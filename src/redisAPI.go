@@ -15,6 +15,11 @@ import (
 
 const (
 	tkSet = "botTokens"
+	botHash = "botInfos"
+)
+
+var (
+	redisClient *redis.Client
 )
 
 var (
@@ -34,8 +39,8 @@ var (
 	ErrRemoveToken = errors.New("couldn't remove one or more tokens")
 )
 
-func redisInit(addr string, pwd string, db int) (*redis.Client, error) {
-	redisClient := redis.NewClient(&redis.Options{
+func redisInit(addr string, pwd string, db int) error {
+	redisClient = redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: pwd,
 		DB:       db,
@@ -43,9 +48,9 @@ func redisInit(addr string, pwd string, db int) (*redis.Client, error) {
 	err := redisClient.Ping().Err()
 	if err != nil {
 		log.Printf("Error in connecting to redis instance: %v", err)
-		return nil, ErrRedisConnection
+		return ErrRedisConnection
 	}
-	return redisClient, nil
+	return nil
 }
 
 func addBotToken(newToken string, client *redis.Client) error {
@@ -64,12 +69,13 @@ func addBotToken(newToken string, client *redis.Client) error {
 		log.Printf("Error in adding new bot token: %v", err)
 		return ErrRedisAddSet
 	}
+
 	return nil
 }
 
 func addBotTokens(client *redis.Client, newTokens []string) error {
 	errNum := 0
-	if newTokens == nil {
+	if newTokens == nil && cmdFlags.interactive {
 		fmt.Println("Add the new tokens, comma-separated:")
 		reader := bufio.NewReader(os.Stdin)
 		line, err := reader.ReadString('\n')
@@ -77,7 +83,7 @@ func addBotTokens(client *redis.Client, newTokens []string) error {
 			log.Printf("Error in reading new bot tokens: %v", err)
 			return ErrStdRead
 		}
-		newTokens := strings.Split(line, ",")
+		newTokens = strings.Split(line, ",")
 	}
 	for _, newToken := range newTokens {
 		err := addBotToken(newToken, client)

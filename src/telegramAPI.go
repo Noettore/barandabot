@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -11,7 +12,7 @@ var (
 	bots []*tb.Bot
 )
 
-func botInit() error {
+func botsInit() error {
 	tokens, err := getBotTokens(redisClient)
 	if err != nil {
 		log.Printf("Error in retriving bot tokens: %v. Cannot start telebot without tokens.", err)
@@ -33,8 +34,8 @@ func botInit() error {
 	return nil
 }
 
-func botStart() {
-	err := botInit()
+func botsStart() error {
+	err := botsInit()
 	if err != nil {
 		log.Fatalf("Error in initializing bots: %v", err)
 	}
@@ -43,9 +44,22 @@ func botStart() {
 		defer bot.Stop()
 	}
 
-	/*b.Handle("/hello", func(m *tb.Message) {
-		b.Send(m.Sender, "hello world")
+	var wg sync.WaitGroup
+	for i := range bots {
+		defer wg.Done()
+		botStart(bots[i])
+	}
+
+	return nil
+}
+
+func botStart(bot *tb.Bot) error {
+	log.Printf("Started bot %s", bot.Me.Username)
+	bot.Handle("/hello", func(m *tb.Message) {
+		bot.Send(m.Sender, "hello world")
 	})
 
-	b.Start()*/
+	bot.Start()
+
+	return nil
 }

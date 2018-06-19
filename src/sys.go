@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/dixonwille/wmenu"
 )
@@ -12,37 +13,49 @@ import (
 type stringSlice []string
 
 type flags struct {
-	redisAddr string
-	redisPwd  string
-	redisDB   int
-	tokens    stringSlice
+	interactive bool
+	redisAddr   string
+	redisPwd    string
+	redisDB     int
+	tokens      stringSlice
 }
 
+var cmdFlags flags
+
 var (
-	//ErrStdRead it thrown when it's not possible to read from the standard input
-	ErrStdRead = errors.New("couldn't read string from stdin")
+	//ErrStdRead is thrown when it's not possible to read from the standard input
+	ErrStdRead = errors.New("stdin: couldn't read string from stdin")
+	//ErrMainMenu is thrown when a menu couldn't be started
+	ErrMainMenu = errors.New("menu: couldn't start menu")
 )
 
-func (i *stringSlice) Set(value string) error {
+func (i *stringSlice) String() string {
+	return fmt.Sprint(*i)
+}
 
-	*i = append(*i, value)
+func (i *stringSlice) Set(values string) error {
+	splittedValues := strings.Split(values, ",")
+	for _, value := range splittedValues {
+		*i = append(*i, value)
+	}
 	return nil
 }
 
-func getFlags() (flags, error) {
-
-	var cmdFlags flags
-
+func getFlags() error {
 	const (
-		defaultAddr = "127.0.0.1:6379"
-		addrUsage   = "The address of the redis instance"
-		defaultPwd  = ""
-		pwdUsage    = "The password of the redis instance"
-		defaultDB   = 0
-		dbUsage     = "The database to be selected after connecting to redis instance"
-		tokenUsage  = "A bot token to be added to the set of tokens"
+		defaultInteractive = true
+		interactiveUsage   = "False if the bot isn't executed on a tty"
+		defaultAddr        = "127.0.0.1:6379"
+		addrUsage          = "The address of the redis instance"
+		defaultPwd         = ""
+		pwdUsage           = "The password of the redis instance"
+		defaultDB          = 0
+		dbUsage            = "The database to be selected after connecting to redis instance"
+		tokenUsage         = "A bot token to be added to the set of tokens"
 	)
 
+	flag.BoolVar(&(cmdFlags.interactive), "interactive", defaultInteractive, interactiveUsage)
+	flag.BoolVar(&(cmdFlags.interactive), "i", defaultInteractive, interactiveUsage+"(shorthand)")
 	flag.StringVar(&(cmdFlags.redisAddr), "redisAddr", defaultAddr, addrUsage)
 	flag.StringVar(&(cmdFlags.redisAddr), "a", defaultAddr, addrUsage+"(shorthand)")
 	flag.StringVar(&(cmdFlags.redisPwd), "redisPwd", defaultPwd, pwdUsage)
@@ -54,14 +67,16 @@ func getFlags() (flags, error) {
 
 	flag.Parse()
 
-	return cmdFlags, nil
+	return nil
 }
 
-func mainMenu() {
+func mainMenu() error {
 	fmt.Println("Welcome in barandaBot! Here you can control the bot(s) options and configurations.")
 	menu := wmenu.NewMenu("What do you want to do?")
 	menu.LoopOnInvalid()
-	menu.Option("Start Bot(s)", nil, true, nil)
+	menu.Option("Start Bot(s)", nil, true, func(opt wmenu.Opt) error {
+		return botsStart()
+	})
 	menu.Option("Add bot token(s)", nil, false, func(opt wmenu.Opt) error {
 		return addBotTokens(redisClient, nil)
 	})
@@ -72,5 +87,7 @@ func mainMenu() {
 	err := menu.Run()
 	if err != nil {
 		log.Printf("Error in main menu: %v", err)
+		return ErrMainMenu
 	}
+	return nil
 }
