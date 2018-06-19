@@ -4,17 +4,18 @@ import (
 	"log"
 	"time"
 
-	"github.com/go-redis/redis"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
-func botInit(redisClient *redis.Client) ([]*tb.Bot, error) {
-	var bots []*tb.Bot
+var (
+	bots []*tb.Bot
+)
 
+func botInit() error {
 	tokens, err := getBotTokens(redisClient)
 	if err != nil {
 		log.Printf("Error in retriving bot tokens: %v. Cannot start telebot without tokens.", err)
-		return nil, err
+		return err
 	}
 
 	for _, token := range tokens {
@@ -29,5 +30,22 @@ func botInit(redisClient *redis.Client) ([]*tb.Bot, error) {
 			bots = append(bots, bot)
 		}
 	}
-	return bots, nil
+	return nil
+}
+
+func botStart() {
+	err := botInit()
+	if err != nil {
+		log.Fatalf("Error in initializing bots: %v", err)
+	}
+
+	for _, bot := range bots {
+		defer bot.Stop()
+	}
+
+	/*b.Handle("/hello", func(m *tb.Message) {
+		b.Send(m.Sender, "hello world")
+	})
+
+	b.Start()*/
 }
