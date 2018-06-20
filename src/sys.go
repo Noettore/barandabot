@@ -78,16 +78,18 @@ func mainMenu() error {
 		return botsStart()
 	})
 	menu.Option("Add bot token(s)", nil, false, func(opt wmenu.Opt) error {
-		return addBotTokens(redisClient, nil)
+		return addBotTokens(nil)
 	})
 	menu.Option("Remove bot token(s)", nil, false, func(opt wmenu.Opt) error {
-		return removeBotTokens(redisClient)
+		return removeBotTokens()
 	})
 
-	err := menu.Run()
-	if err != nil {
-		log.Printf("Error in main menu: %v", err)
-		return ErrMainMenu
+	for {
+		err := menu.Run()
+		if err != nil {
+			log.Printf("Error in main menu: %v", err)
+			return ErrMainMenu
+		}
 	}
 	return nil
 }

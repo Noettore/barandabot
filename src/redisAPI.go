@@ -11,16 +11,15 @@ import (
 
 	"github.com/dixonwille/wmenu"
 	"github.com/go-redis/redis"
+	tb "gopkg.in/tucnak/telebot.v2"
 )
 
 const (
-	tkSet = "botTokens"
+	tkSet   = "botTokens"
 	botHash = "botInfos"
 )
 
-var (
-	redisClient *redis.Client
-)
+var redisClient *redis.Client
 
 var (
 	//ErrRedisConnection is thrown when a redis connection error occurs
@@ -29,6 +28,8 @@ var (
 	ErrRedisAddSet = errors.New("redis: couldn't add key in set")
 	//ErrRedisRetriveSet is thrown when it's not possible to retrive keys from a set
 	ErrRedisRetriveSet = errors.New("redis: couldn't retrive keys from set")
+	//ErrRedisAddHash is thrown when it's not possible to add a key in a hash
+	ErrRedisAddHash = errors.New("redis: couldn't add key in hash")
 	//ErrTokenParsing is thrown when it's not possible to parse the bot token
 	ErrTokenParsing = errors.New("botToken: cannot parse token")
 	//ErrTokenInvalid is thrown when the string parsed isn't a valid telegram bot token
@@ -53,7 +54,10 @@ func redisInit(addr string, pwd string, db int) error {
 	return nil
 }
 
-func addBotToken(newToken string, client *redis.Client) error {
+func addBotToken(newToken string) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
 	token := strings.TrimSpace(newToken)
 	matched, err := regexp.MatchString("^\\d+\\:([0-9]|[A-z]|\\_|\\-)+", token)
 	if err != nil {
@@ -64,7 +68,7 @@ func addBotToken(newToken string, client *redis.Client) error {
 		return ErrTokenInvalid
 	}
 
-	err = client.SAdd(tkSet, token).Err()
+	err = redisClient.SAdd(tkSet, token).Err()
 	if err != nil {
 		log.Printf("Error in adding new bot token: %v", err)
 		return ErrRedisAddSet
@@ -73,7 +77,10 @@ func addBotToken(newToken string, client *redis.Client) error {
 	return nil
 }
 
-func addBotTokens(client *redis.Client, newTokens []string) error {
+func addBotTokens(newTokens []string) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
 	errNum := 0
 	if newTokens == nil && cmdFlags.interactive {
 		fmt.Println("Add the new tokens, comma-separated:")
@@ -86,7 +93,7 @@ func addBotTokens(client *redis.Client, newTokens []string) error {
 		newTokens = strings.Split(line, ",")
 	}
 	for _, newToken := range newTokens {
-		err := addBotToken(newToken, client)
+		err := addBotToken(newToken)
 		if err != nil {
 			errNum++
 			log.Printf("Error in adding new bot token %s: %v", newToken, err)
@@ -98,8 +105,11 @@ func addBotTokens(client *redis.Client, newTokens []string) error {
 	return nil
 }
 
-func removeBotToken(token string, client *redis.Client) error {
-	err := client.SRem(tkSet, token).Err()
+func removeBotToken(token string) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
+	err := redisClient.SRem(tkSet, token).Err()
 	if err != nil {
 		log.Printf("Error in removing bot token %s: %v", token, err)
 		return ErrRemoveToken
@@ -107,18 +117,35 @@ func removeBotToken(token string, client *redis.Client) error {
 	return nil
 }
 
-func removeBotTokens(client *redis.Client) error {
-	tokens, err := client.SMembers(tkSet).Result()
+func removeBotTokens() error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
+	//tokens, err := redisClient.SMembers(tkSet).Result()
+	botsInfo, err := redisClient.HGetAll(botHash).Result()
 	if err != nil {
-		log.Printf("Couldn't retrive bot tokens: %v", err)
+		log.Printf("Couldn't retrive bot info: %v", err)
 		return ErrRedisRetriveSet
 	}
 	menu := wmenu.NewMenu("Select the token(s) you want to remove:")
 	menu.AllowMultiple()
 	menu.LoopOnInvalid()
-	menu.Action(func(opts []wmenu.Opt) error { return removeBotToken(opts[0].Text, client) })
-	for _, token := range tokens {
-		menu.Option(token, nil, false, nil)
+	menu.Action(func(opts []wmenu.Opt) error {
+		for _, opt := range opts {
+			if opt.Value == nil {
+				log.Println("Couldn't remove bot: nil token")
+				return ErrNilPointer
+			}
+			err := removeBotToken(opt.Value.(string))
+			if err != nil {
+				log.Printf("Couldn't remove bot: %v", err)
+			}
+		}
+		return nil
+	})
+	//for _, token := range tokens {
+	for token, botInfo := range botsInfo {
+		menu.Option(botInfo, token, false, nil)
 	}
 	err = menu.Run()
 	if err != nil {
@@ -128,26 +155,42 @@ func removeBotTokens(client *redis.Client) error {
 	return nil
 }
 
-func getBotTokens(client *redis.Client) ([]string, error) {
-	tkNum, err := client.SCard(tkSet).Result()
+func getBotTokens() ([]string, error) {
+	if redisClient == nil {
+		return nil, ErrNilPointer
+	}
+	tkNum, err := redisClient.SCard(tkSet).Result()
 	if err != nil {
 		log.Printf("Couldn't retrive number of bot tokens: %v", err)
 		return nil, ErrRedisRetriveSet
 	}
 	if tkNum == 0 {
 		fmt.Println("No bot token found.")
-		err := addBotTokens(client, nil)
+		err := addBotTokens(nil)
 		if err != nil {
 			log.Printf("Couldn't add new bot tokens: %v", err)
 			return nil, ErrAddToken
 		}
 	}
 
-	tokens, err := client.SMembers(tkSet).Result()
+	tokens, err := redisClient.SMembers(tkSet).Result()
 	if err != nil {
 		log.Printf("Couldn't retrive bot tokens: %v", err)
 		return nil, ErrRedisRetriveSet
 	}
 
 	return tokens, nil
+}
+
+func addBotInfo(bot *tb.Bot, botToken string) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
+	err := redisClient.HSet(botHash, botToken, bot.Me.Username).Err()
+	if err != nil {
+		log.Printf("Error in adding bot info: %v", err)
+		return ErrRedisAddHash
+	}
+
+	return nil
 }
