@@ -23,6 +23,7 @@ type flags struct {
 var cmdFlags flags
 
 var (
+	welcomeMessage = "Welcome in barandaBot! Here you can control the bot(s) options and configurations."
 	//ErrStdRead is thrown when it's not possible to read from the standard input
 	ErrStdRead = errors.New("stdin: couldn't read string from stdin")
 	//ErrMainMenu is thrown when a menu couldn't be started
@@ -71,7 +72,7 @@ func getFlags() error {
 }
 
 func mainMenu() error {
-	fmt.Println("Welcome in barandaBot! Here you can control the bot(s) options and configurations.")
+	fmt.Println(welcomeMessage)
 	menu := wmenu.NewMenu("What do you want to do?")
 	menu.LoopOnInvalid()
 	menu.Option("Start Bot(s)", nil, true, func(opt wmenu.Opt) error {
@@ -84,12 +85,14 @@ func mainMenu() error {
 		return removeBotTokens()
 	})
 
+	var returnErr error
+
 	for {
 		err := menu.Run()
 		if err != nil {
 			log.Printf("Error in main menu: %v", err)
-			return ErrMainMenu
+			returnErr = ErrMainMenu
 		}
 	}
-	return nil
+	return returnErr
 }

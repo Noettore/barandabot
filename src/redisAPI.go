@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/dixonwille/wmenu"
@@ -15,8 +17,11 @@ import (
 )
 
 const (
-	tkSet   = "botTokens"
-	botHash = "botInfos"
+	tkSet       = "botToken"
+	botHash     = "botInfo"
+	userSet     = "userID"
+	userHash    = "userInfo"
+	authUserSet = "authUser"
 )
 
 var redisClient *redis.Client
@@ -26,10 +31,16 @@ var (
 	ErrRedisConnection = errors.New("redis: couldn't connect to remote instance")
 	//ErrRedisAddSet is thrown when it's not possible to add a key in a set
 	ErrRedisAddSet = errors.New("redis: couldn't add key in set")
+	//ErrRedisRemSet is thrown when it's not possible to remove a key from a given set
+	ErrRedisRemSet = errors.New("redis: couldn't remove key from set")
 	//ErrRedisRetriveSet is thrown when it's not possible to retrive keys from a set
 	ErrRedisRetriveSet = errors.New("redis: couldn't retrive keys from set")
+	//ErrRedisCheckSet is thrown when it's not possible to check if a key is in a given set
+	ErrRedisCheckSet = errors.New("redis: couldn't check if key is in set")
 	//ErrRedisAddHash is thrown when it's not possible to add a key in a hash
 	ErrRedisAddHash = errors.New("redis: couldn't add key in hash")
+	//ErrRedisDelHash is thrown when it's not possible to remove a key from a hash
+	ErrRedisDelHash = errors.New("redis: couldn't remove key from hash")
 	//ErrTokenParsing is thrown when it's not possible to parse the bot token
 	ErrTokenParsing = errors.New("botToken: cannot parse token")
 	//ErrTokenInvalid is thrown when the string parsed isn't a valid telegram bot token
@@ -38,6 +49,8 @@ var (
 	ErrAddToken = errors.New("couldn't add one or more tokens")
 	//ErrRemoveToken is thrown when one or more bot tokens hasn't been removed
 	ErrRemoveToken = errors.New("couldn't remove one or more tokens")
+	//ErrJSONMarshall is thrown when it's impossible to marshall a given struct
+	ErrJSONMarshall = errors.New("json: couldn't marshall struct")
 )
 
 func redisInit(addr string, pwd string, db int) error {
@@ -131,21 +144,29 @@ func removeBotTokens() error {
 	menu.AllowMultiple()
 	menu.LoopOnInvalid()
 	menu.Action(func(opts []wmenu.Opt) error {
+		var returnErr error
 		for _, opt := range opts {
 			if opt.Value == nil {
 				log.Println("Couldn't remove bot: nil token")
-				return ErrNilPointer
-			}
-			err := removeBotToken(opt.Value.(string))
-			if err != nil {
-				log.Printf("Couldn't remove bot: %v", err)
+				returnErr = ErrNilPointer
+			} else {
+				err := removeBotToken(opt.Value.(string))
+				if err != nil {
+					log.Printf("Couldn't remove bot token: %v", err)
+				}
+				err = removeBotInfo(opt.Value.(string))
+				if err != nil {
+					log.Printf("Couldn't remove bot info: %v", err)
+				}
 			}
 		}
-		return nil
+		return returnErr
 	})
 	//for _, token := range tokens {
-	for token, botInfo := range botsInfo {
-		menu.Option(botInfo, token, false, nil)
+	for token, jsonBotInfo := range botsInfo {
+		botInfo := &tb.Bot{}
+		json.Unmarshal([]byte(jsonBotInfo), &botInfo)
+		menu.Option(botInfo.Me.Username, token, false, nil)
 	}
 	err = menu.Run()
 	if err != nil {
@@ -182,15 +203,87 @@ func getBotTokens() ([]string, error) {
 	return tokens, nil
 }
 
-func addBotInfo(bot *tb.Bot, botToken string) error {
+func addBotInfo(botToken string, bot *tb.Bot) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
-	err := redisClient.HSet(botHash, botToken, bot.Me.Username).Err()
+	jsonBot, err := json.Marshal(&bot)
+	if err != nil {
+		log.Printf("Error marshalling bot info: %v", err)
+		return ErrJSONMarshall
+	}
+	err = redisClient.HSet(botHash, botToken, string(jsonBot)).Err()
 	if err != nil {
 		log.Printf("Error in adding bot info: %v", err)
 		return ErrRedisAddHash
 	}
 
+	return nil
+}
+
+func removeBotInfo(botToken string) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
+	err := redisClient.HDel(botHash, botToken).Err()
+	if err != nil {
+		log.Printf("Error in removing bot info: %v", err)
+		return ErrRedisDelHash
+	}
+	return nil
+}
+
+func addUser(user *tb.User) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
+	err := redisClient.SAdd(userSet, user.ID).Err()
+	if err != nil {
+		log.Printf("Error in adding user ID: %v", err)
+		return ErrRedisAddSet
+	}
+	jsonUser, err := json.Marshal(&user)
+	if err != nil {
+		log.Printf("Error in marshalling user to json: %v", err)
+		return ErrJSONMarshall
+	}
+	err = redisClient.HSet(userHash, strconv.Itoa(user.ID), jsonUser).Err()
+	if err != nil {
+		log.Printf("Error adding user info in hash: %v", err)
+		return ErrRedisAddHash
+	}
+
+	return nil
+}
+
+func isAuthrizedUser(userID int) (bool, error) {
+	if redisClient == nil {
+		return false, ErrNilPointer
+	}
+	auth, err := redisClient.SIsMember(authUserSet, strconv.Itoa(userID)).Result()
+	if err != nil {
+		log.Printf("Error checking if user is authorized: %v", err)
+		return false, ErrRedisCheckSet
+	}
+	return auth, nil
+}
+
+func authorizeUser(userID int, authorized bool) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
+	if authorized {
+		err := redisClient.SAdd(authUserSet, strconv.Itoa(userID)).Err()
+		if err != nil {
+			log.Printf("Error adding token to set: %v", err)
+			return ErrRedisAddSet
+		}
+	} else {
+		err := redisClient.SRem(authUserSet, strconv.Itoa(userID)).Err()
+		if err != nil {
+			log.Printf("Error removing token from set: %v", err)
+			return ErrRedisRemSet
+		}
+	}
 	return nil
 }
