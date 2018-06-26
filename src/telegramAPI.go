@@ -4,104 +4,85 @@ import (
 	"errors"
 	"log"
 	"strconv"
-	"sync"
 	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
-var bots []*tb.Bot
+var bot *tb.Bot
 
 var (
 	//ErrNilPointer is thrown when a pointer is nil
 	ErrNilPointer = errors.New("pointer is nil")
 	//ErrIDFromMsg is thrown when the message doesn't contain user infos
-	ErrIDFromMsg = errors.New("telegram: couldn't retrive user ID from message")
+	ErrIDFromMsg = errors.New("telegram: couldn't retrieve user ID from message")
+	//ErrSendMsg is thrown when the message couldn't be send
+	ErrSendMsg = errors.New("telegram: cannot send message")
+	//ErrChatRetrive is thrown when the chat cannot be retrieved
+	ErrChatRetrieve = errors.New("telegram: cannot retrieve chat")
 )
 
-func botsInit() error {
-	tokens, err := getBotTokens()
+func botInit() error {
+	token, err := getBotToken()
 	if err != nil {
-		log.Printf("Error in retriving bot tokens: %v. Cannot start telebot without tokens.", err)
+		log.Printf("Error in retriving bot token: %v. Cannot start telebot without token.", err)
 		return err
 	}
 
-	if tokens == nil {
-		log.Println("Error: pointer is nil")
-		return ErrNilPointer
-	}
-
-	for _, token := range tokens {
-		poller := &tb.LongPoller{Timeout: 15 * time.Second}
-		middlePoller := tb.NewMiddlewarePoller(poller, func(upd *tb.Update) bool {
-			if upd.Message == nil {
-				return true
-			}
-			if upd.Message.Sender != nil {
-				err := addUser(upd.Message.Sender)
-				if err != nil {
-					log.Printf("Error in adding user info: %v", err)
-				}
-				err = authorizeUser(upd.Message.Sender.ID, true)
-				if err != nil {
-					log.Printf("Error in authorizing user: %v", err)
-				}
-			} else {
-				log.Printf("%v", ErrIDFromMsg)
-			}
-			auth, err := isAuthrizedUser(upd.Message.Sender.ID)
-			if err != nil {
-				log.Printf("Error checking if user is authorized: %v", err)
-			}
-			if !auth {
-				return false
-			}
-
+	poller := &tb.LongPoller{Timeout: 15 * time.Second}
+	middlePoller := tb.NewMiddlewarePoller(poller, func(upd *tb.Update) bool {
+		if upd.Message == nil {
 			return true
-		})
-
-		bot, err := tb.NewBot(tb.Settings{
-			Token:  token,
-			Poller: middlePoller,
-		})
-
-		if err != nil {
-			log.Printf("Error in enstablishing connection for bot %s: %v", bot.Me.Username, err)
-		} else {
-			bots = append(bots, bot)
-			err = addBotInfo(token, bot)
+		}
+		if upd.Message.Sender != nil {
+			err := addUser(upd.Message.Sender)
 			if err != nil {
-				log.Printf("Error: bot %s info couldn't be added: %v", bot.Me.Username, err)
+				log.Printf("Error in adding user info: %v", err)
 			}
+			err = authorizeUser(upd.Message.Sender.ID, true)
+			if err != nil {
+				log.Printf("Error in authorizing user: %v", err)
+			}
+		} else {
+			log.Printf("%v", ErrIDFromMsg)
 		}
-	}
-	return nil
-}
+		auth, err := isAuthrizedUser(upd.Message.Sender.ID)
+		if err != nil {
+			log.Printf("Error checking if user is authorized: %v", err)
+		}
+		if !auth {
+			return false
+		}
 
-func botsStart() error {
-	err := botsInit()
+		return true
+	})
+
+	bot, err = tb.NewBot(tb.Settings{
+		Token:  token,
+		Poller: middlePoller,
+	})
+
 	if err != nil {
-		log.Fatalf("Error in initializing bots: %v", err)
-	}
-
-	for _, bot := range bots {
-		defer bot.Stop()
-	}
-
-	var wg sync.WaitGroup
-	for i := range bots {
-		if bots[i] != nil {
-			wg.Add(1)
-			go botStart(bots[i], &wg)
+		log.Printf("Error in enstablishing connection for bot %s: %v", bot.Me.Username, err)
+	} else {
+		err = addBotInfo(token, bot)
+		if err != nil {
+			log.Printf("Error: bot %s info couldn't be added: %v", bot.Me.Username, err)
 		}
 	}
-	wg.Wait()
-
 	return nil
 }
 
-func botStart(bot *tb.Bot, wg *sync.WaitGroup) error {
-	defer wg.Done()
+func sendMessage(user *tb.User, msg string) error {
+	_, err := bot.Send(user, msg)
+	if err != nil {
+		log.Printf("Error sending message to user: %v", err)
+		return ErrSendMsg
+	}
+	return nil
+}
+
+func botStart() error {
 	if bot == nil {
 		return ErrNilPointer
 	}

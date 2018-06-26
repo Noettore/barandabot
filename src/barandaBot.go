@@ -19,8 +19,8 @@ func main() {
 
 	if cmdFlags.interactive {
 		mainMenu()
-	} else if cmdFlags.tokens != nil {
-		err = addBotTokens(cmdFlags.tokens)
+	} else if cmdFlags.token != "" {
+		err = setBotToken(cmdFlags.token)
 		if err == ErrAddToken {
 			log.Printf("Error in adding bot tokens: %v", err)
 		}

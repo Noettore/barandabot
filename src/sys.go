@@ -17,7 +17,7 @@ type flags struct {
 	redisAddr   string
 	redisPwd    string
 	redisDB     int
-	tokens      stringSlice
+	token       string
 }
 
 var cmdFlags flags
@@ -28,6 +28,14 @@ var (
 	ErrStdRead = errors.New("stdin: couldn't read string from stdin")
 	//ErrMainMenu is thrown when a menu couldn't be started
 	ErrMainMenu = errors.New("menu: couldn't start menu")
+	//ErrAtoiConv is thrown when a string couldn't be converted to int
+	ErrAtoiConv = errors.New("atoi: couldn't convert string to int")
+	//ErrJSONMarshall is thrown when it's impossible to marshall a given struct
+	ErrJSONMarshall = errors.New("json: couldn't marshall struct")
+	//ErrJSONUnmarshall is thworn when it's impossible to unmarshall a given struct
+	ErrJSONUnmarshall = errors.New("json: couldn't unmarshall struct")
+	//ErrRemoveAdmin is thrown when it's impossible to remove an admin
+	ErrRemoveAdmin = errors.New("menu: cannot remove admin")
 )
 
 func (i *stringSlice) String() string {
@@ -52,6 +60,7 @@ func getFlags() error {
 		pwdUsage           = "The password of the redis instance"
 		defaultDB          = 0
 		dbUsage            = "The database to be selected after connecting to redis instance"
+		defaultToken       = ""
 		tokenUsage         = "A bot token to be added to the set of tokens"
 	)
 
@@ -63,8 +72,8 @@ func getFlags() error {
 	flag.StringVar(&(cmdFlags.redisPwd), "p", defaultPwd, pwdUsage+"(shorthand)")
 	flag.IntVar(&(cmdFlags.redisDB), "redisDB", defaultDB, dbUsage)
 	flag.IntVar(&(cmdFlags.redisDB), "d", defaultDB, dbUsage+"(shorthand)")
-	flag.Var(&(cmdFlags.tokens), "token", tokenUsage)
-	flag.Var(&(cmdFlags.tokens), "t", tokenUsage+"(shorthand")
+	flag.StringVar(&(cmdFlags.token), "token", defaultToken, tokenUsage)
+	flag.StringVar(&(cmdFlags.token), "t", defaultToken, tokenUsage+"(shorthand")
 
 	flag.Parse()
 
@@ -75,14 +84,17 @@ func mainMenu() error {
 	fmt.Println(welcomeMessage)
 	menu := wmenu.NewMenu("What do you want to do?")
 	menu.LoopOnInvalid()
-	menu.Option("Start Bot(s)", nil, true, func(opt wmenu.Opt) error {
-		return botsStart()
+	menu.Option("Start Bot", nil, true, func(opt wmenu.Opt) error {
+		return botStart()
 	})
-	menu.Option("Add bot token(s)", nil, false, func(opt wmenu.Opt) error {
-		return addBotTokens(nil)
+	menu.Option("Set bot token", nil, false, func(opt wmenu.Opt) error {
+		return setBotToken("")
 	})
-	menu.Option("Remove bot token(s)", nil, false, func(opt wmenu.Opt) error {
-		return removeBotTokens()
+	menu.Option("Add bot admin(s)", nil, false, func(opt wmenu.Opt) error {
+		return addBotAdmins(nil)
+	})
+	menu.Option("Remove bot admin(s)", nil, false, func(opt wmenu.Opt) error {
+		return removeBotAdmins()
 	})
 
 	var returnErr error
