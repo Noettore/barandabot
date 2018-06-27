@@ -9,7 +9,13 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
+const (
+	newAdminMsg string = "Sei stato aggiunto come amministratore. Adesso hai a disposizione una serie aggiuntiva di comandi e controlli per il bot."
+	delAdminMsg string = "Sei stato rimosso da amministratore."
+)
+
 var bot *tb.Bot
+var isStartedBot bool
 
 var (
 	//ErrNilPointer is thrown when a pointer is nil
@@ -18,15 +24,21 @@ var (
 	ErrIDFromMsg = errors.New("telegram: couldn't retrieve user ID from message")
 	//ErrSendMsg is thrown when the message couldn't be send
 	ErrSendMsg = errors.New("telegram: cannot send message")
-	//ErrChatRetrive is thrown when the chat cannot be retrieved
+	//ErrChatRetrieve is thrown when the chat cannot be retrieved
 	ErrChatRetrieve = errors.New("telegram: cannot retrieve chat")
+	//ErrTokenMissing is thrown when neither a token is in the db nor one is passed with -t on program start
+	ErrTokenMissing = errors.New("telegram: cannot start bot without a token")
+	//ErrBotInit is thrown when a bot couldn't be initialized
+	ErrBotInit = errors.New("telegram: error in bot initialization")
+	//ErrBotConn is thrown when there is a connection problem
+	ErrBotConn = errors.New("telegram: cannot connect to bot")
 )
 
 func botInit() error {
 	token, err := getBotToken()
 	if err != nil {
 		log.Printf("Error in retriving bot token: %v. Cannot start telebot without token.", err)
-		return err
+		return ErrTokenMissing
 	}
 
 	poller := &tb.LongPoller{Timeout: 15 * time.Second}
@@ -61,15 +73,22 @@ func botInit() error {
 		Token:  token,
 		Poller: middlePoller,
 	})
-
 	if err != nil {
 		log.Printf("Error in enstablishing connection for bot %s: %v", bot.Me.Username, err)
-	} else {
-		err = addBotInfo(token, bot)
-		if err != nil {
-			log.Printf("Error: bot %s info couldn't be added: %v", bot.Me.Username, err)
-		}
+		return ErrBotConn
 	}
+
+	err = setBotHandlers()
+	if err != nil {
+		log.Printf("Error setting bot handlers: %v", err)
+		return ErrBotInit
+	}
+
+	err = addBotInfo(token, bot.Me.Username)
+	if err != nil {
+		log.Printf("Error: bot %s info couldn't be added: %v", bot.Me.Username, err)
+	}
+
 	return nil
 }
 
@@ -82,11 +101,11 @@ func sendMessage(user *tb.User, msg string) error {
 	return nil
 }
 
-func botStart() error {
+func setBotHandlers() error {
 	if bot == nil {
 		return ErrNilPointer
 	}
-	log.Printf("Started %s", bot.Me.Username)
+
 	bot.Handle("/hello", func(m *tb.Message) {
 		bot.Send(m.Sender, "hello world")
 	})
@@ -94,7 +113,29 @@ func botStart() error {
 		bot.Send(m.Sender, strconv.Itoa(m.Sender.ID))
 	})
 
-	bot.Start()
+	return nil
+}
+
+func botStart() error {
+	if bot == nil {
+		return ErrNilPointer
+	}
+
+	go bot.Start()
+	isStartedBot = true
+	log.Printf("Started %s", bot.Me.Username)
+
+	return nil
+}
+
+func botStop() error {
+	if bot == nil {
+		return ErrNilPointer
+	}
+	log.Printf("Stopping %s", bot.Me.Username)
+	bot.Stop()
+	isStartedBot = false
+	log.Println("Bot stopped")
 
 	return nil
 }

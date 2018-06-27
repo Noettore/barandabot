@@ -2,14 +2,11 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"regexp"
 	"strings"
-
-	tb "gopkg.in/tucnak/telebot.v2"
 )
 
 func setBotToken(newToken string) error {
@@ -49,12 +46,12 @@ func getBotToken() (string, error) {
 	if redisClient == nil {
 		return "", ErrNilPointer
 	}
-	token, err := redisClient.Get(botToken).Result()
+	tokenExists, err := redisClient.Exists(botToken).Result()
 	if err != nil {
-		log.Printf("Couldn't retrieve bot token: %v", err)
-		return "", ErrRedisRetrieveSet
+		log.Printf("Error checking if token exists in db: %v", err)
+		return "", ErrRedisCheckSet
 	}
-	if token == "" {
+	if tokenExists == 0 {
 		fmt.Println("No bot token found.")
 		err := setBotToken("")
 		if err != nil {
@@ -62,20 +59,19 @@ func getBotToken() (string, error) {
 			return "", ErrAddToken
 		}
 	}
-
+	token, err := redisClient.Get(botToken).Result()
+	if err != nil {
+		log.Printf("Couldn't retrieve bot token: %v", err)
+		return "", ErrRedisRetrieveSet
+	}
 	return token, nil
 }
 
-func addBotInfo(botToken string, bot *tb.Bot) error {
+func addBotInfo(botToken string, botUser string) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
-	jsonBot, err := json.Marshal(&bot)
-	if err != nil {
-		log.Printf("Error marshalling bot info: %v", err)
-		return ErrJSONMarshall
-	}
-	err = redisClient.HSet(botHash, botToken, string(jsonBot)).Err()
+	err := redisClient.HSet(botInfo, botToken, botUser).Err()
 	if err != nil {
 		log.Printf("Error in adding bot info: %v", err)
 		return ErrRedisAddHash
@@ -88,7 +84,7 @@ func removeBotInfo(botToken string) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
-	err := redisClient.HDel(botHash, botToken).Err()
+	err := redisClient.HDel(botInfo, botToken).Err()
 	if err != nil {
 		log.Printf("Error in removing bot info: %v", err)
 		return ErrRedisDelHash

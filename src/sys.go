@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/dixonwille/wmenu"
@@ -23,7 +24,7 @@ type flags struct {
 var cmdFlags flags
 
 var (
-	welcomeMessage = "Welcome in barandaBot! Here you can control the bot(s) options and configurations."
+	welcomeMessage = "Welcome! Here you can control the bot options and configurations."
 	//ErrStdRead is thrown when it's not possible to read from the standard input
 	ErrStdRead = errors.New("stdin: couldn't read string from stdin")
 	//ErrMainMenu is thrown when a menu couldn't be started
@@ -80,31 +81,62 @@ func getFlags() error {
 	return nil
 }
 
-func mainMenu() error {
-	fmt.Println(welcomeMessage)
+func exit() error {
+	if isStartedBot {
+		log.Printf("Stopping %s", bot.Me.Username)
+		bot.Stop()
+		log.Println("Bot stopped")
+	}
+	log.Println("Closing redis instance")
+	redisClient.Close()
+	log.Println("Redis instance closed")
+	log.Println("Exiting")
+	os.Exit(0)
+
+	return nil
+}
+
+func mainMenu() *wmenu.Menu {
 	menu := wmenu.NewMenu("What do you want to do?")
 	menu.LoopOnInvalid()
-	menu.Option("Start Bot", nil, true, func(opt wmenu.Opt) error {
-		return botStart()
-	})
-	menu.Option("Set bot token", nil, false, func(opt wmenu.Opt) error {
-		return setBotToken("")
-	})
+	if !isStartedBot {
+		menu.Option("Start bot", nil, true, func(opt wmenu.Opt) error {
+			return botStart()
+		})
+		menu.Option("Set bot token", nil, false, func(opt wmenu.Opt) error {
+			return setBotToken("")
+		})
+	}
+	if isStartedBot {
+		menu.Option("Stop bot", nil, true, func(opt wmenu.Opt) error {
+			return botStop()
+		})
+	}
 	menu.Option("Add bot admin(s)", nil, false, func(opt wmenu.Opt) error {
 		return addBotAdmins(nil)
 	})
 	menu.Option("Remove bot admin(s)", nil, false, func(opt wmenu.Opt) error {
 		return removeBotAdmins()
 	})
+	menu.Option("Exit", nil, false, func(opt wmenu.Opt) error {
+		return exit()
+	})
 
-	var returnErr error
+	return menu
+}
 
+func mainMenuLoop() error {
+	menu := mainMenu()
+	botStatus := isStartedBot
+	fmt.Println(welcomeMessage)
 	for {
 		err := menu.Run()
 		if err != nil {
 			log.Printf("Error in main menu: %v", err)
-			returnErr = ErrMainMenu
+		}
+		if botStatus != isStartedBot {
+			botStatus = isStartedBot
+			menu = mainMenu()
 		}
 	}
-	return returnErr
 }

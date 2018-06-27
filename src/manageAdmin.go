@@ -45,7 +45,7 @@ func removeBotAdmins() error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
-	botAdmins, err := redisClient.SMembers(adminSet).Result()
+	botAdmins, err := redisClient.SMembers(adminUsers).Result()
 	if err != nil {
 		log.Printf("Couldn't retrieve admins: %v", err)
 		return ErrRedisRetrieveSet
@@ -120,13 +120,13 @@ func addBotAdmin(newAdminID string) error {
 		return ErrAddAdmin
 	}
 	if !isUser {
-		err = addUser(&tb.User{int(chat.ID), chat.FirstName, chat.LastName, chat.Username})
+		err = addUser(&tb.User{ID: int(chat.ID), FirstName: chat.FirstName, LastName: chat.LastName, Username: chat.Username})
 		if err != nil {
 			log.Printf("Error adding user: %v", err)
 			return ErrAddUser
 		}
 	}
-	err = redisClient.SAdd(adminSet, adminID).Err()
+	err = redisClient.SAdd(adminUsers, adminID).Err()
 	if err != nil {
 		log.Printf("Error in adding new admin ID: %v", err)
 		return ErrRedisAddSet
@@ -142,7 +142,7 @@ func addBotAdmin(newAdminID string) error {
 		log.Printf("Error getting user info: %v", err)
 		return ErrGetUser
 	}
-	err = sendMessage(user, "Sei stato aggiunto come amministratore del BarandaBot")
+	err = sendMessage(user, newAdminMsg)
 	if err != nil {
 		log.Printf("Error sending message to new admin: %v", err)
 		return ErrSendMsg
@@ -155,10 +155,21 @@ func removeBotAdmin(adminID int) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
-	err := redisClient.SRem(adminSet, strconv.Itoa(adminID)).Err()
+	err := redisClient.SRem(adminUsers, strconv.Itoa(adminID)).Err()
 	if err != nil {
 		log.Printf("Error removing admin from set: %v", err)
 		return ErrRedisRemSet
 	}
+	user, err := getUserInfo(adminID)
+	if err != nil {
+		log.Printf("Error getting user info: %v", err)
+		return ErrGetUser
+	}
+	err = sendMessage(user, delAdminMsg)
+	if err != nil {
+		log.Printf("Error sending message to removed admin: %v", err)
+		return ErrSendMsg
+	}
+
 	return nil
 }

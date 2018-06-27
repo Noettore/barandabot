@@ -12,13 +12,19 @@ func main() {
 	}
 
 	err = redisInit(cmdFlags.redisAddr, cmdFlags.redisPwd, cmdFlags.redisDB)
-	defer redisClient.Close()
 	if err != nil {
 		log.Fatalf("Error in initializing redis instance: %v", err)
 	}
+	defer redisClient.Close()
+
+	err = botInit()
+	if err != nil {
+		log.Fatalf("Error initializing bot: %v", err)
+	}
+	defer bot.Stop()
 
 	if cmdFlags.interactive {
-		mainMenu()
+		mainMenuLoop()
 	} else if cmdFlags.token != "" {
 		err = setBotToken(cmdFlags.token)
 		if err == ErrAddToken {
