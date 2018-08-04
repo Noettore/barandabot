@@ -3,20 +3,43 @@ package main
 import (
 	"errors"
 	"log"
-	"strconv"
 	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
+type botBool struct {
+	isStarted bool
+	hasAdmin  bool
+}
+
 const (
-	newAdminMsg string = "Sei stato aggiunto come amministratore. Adesso hai a disposizione una serie aggiuntiva di comandi e controlli per il bot."
-	delAdminMsg string = "Sei stato rimosso da amministratore."
+	startMsg          string = "Salve, sono Stefano, il Magister! Come posso esservi d'aiuto?"
+	alreadyStartedMsg string = "Si, mi dica, che c'è?! Sono qui!"
+	restartMsg        string = "Eccomi, sono tornato! Ha bisogno? Mi dica pure!"
+	stopMsg           string = "Mi assenterò per qualche istante, d'altra parte anch'io ho pur diritto alla mia vita privata. Masino mi attende!"
+	newAdminMsg       string = "Beh allora, vediamo... Ah si, la nomino amministratore! Da grandi poteri derivano grandi responsabilità. Mi raccomando, non me ne faccia pentire!"
+	delAdminMsg       string = "Ecco, che le avevo detto?! Mi sembrava di essere stato chiaro! Dovrò sollevarla dall'incarico... Mi spiace molto ma da ora in avanti non sarà più amministratore"
 )
 
-var bot *tb.Bot
-var isStartedBot bool
+var genericCommands = map[string]bool{
+	"/start":          true,
+	"/stop":           true,
+	"/menu":           true,
+	"/prossimoEvento": true,
+}
+var authCommands = map[string]bool{
+	"/prossimaProvaSezione": true,
+	"/prossimaProvaInsieme": true,
+}
+var adminCommands = map[string]bool{
+	"/autorizzaUtente": true,
+	"/aggiungiAdmin":   true,
+	"/rimuoviAdmin":    true,
+}
 
+var bot *tb.Bot
+var botStatus botBool
 var (
 	//ErrNilPointer is thrown when a pointer is nil
 	ErrNilPointer = errors.New("pointer is nil")
@@ -42,32 +65,7 @@ func botInit() error {
 	}
 
 	poller := &tb.LongPoller{Timeout: 15 * time.Second}
-	middlePoller := tb.NewMiddlewarePoller(poller, func(upd *tb.Update) bool {
-		if upd.Message == nil {
-			return true
-		}
-		if upd.Message.Sender != nil {
-			err := addUser(upd.Message.Sender)
-			if err != nil {
-				log.Printf("Error in adding user info: %v", err)
-			}
-			err = authorizeUser(upd.Message.Sender.ID, true)
-			if err != nil {
-				log.Printf("Error in authorizing user: %v", err)
-			}
-		} else {
-			log.Printf("%v", ErrIDFromMsg)
-		}
-		auth, err := isAuthrizedUser(upd.Message.Sender.ID)
-		if err != nil {
-			log.Printf("Error checking if user is authorized: %v", err)
-		}
-		if !auth {
-			return false
-		}
-
-		return true
-	})
+	middlePoller := tb.NewMiddlewarePoller(poller, setBotPoller)
 
 	bot, err = tb.NewBot(tb.Settings{
 		Token:  token,
@@ -84,15 +82,35 @@ func botInit() error {
 		return ErrBotInit
 	}
 
+	err = setBotMenus()
+	if err != nil {
+		log.Printf("Error setting bot menus: %v", err)
+		return ErrBotInit
+	}
+
+	err = setBotCallbacks()
+	if err != nil {
+		log.Printf("Error setting bot callbacks: %v", err)
+		return ErrBotInit
+	}
+
 	err = addBotInfo(token, bot.Me.Username)
 	if err != nil {
 		log.Printf("Error: bot %s info couldn't be added: %v", bot.Me.Username, err)
+		return ErrBotInit
 	}
+
+	hasAdmin, err := hasBotAdmins()
+	if err != nil {
+		log.Printf("Error checking if bot has admins: %v", err)
+		return ErrBotInit
+	}
+	botStatus.hasAdmin = hasAdmin
 
 	return nil
 }
 
-func sendMessage(user *tb.User, msg string) error {
+func sendMsg(user *tb.User, msg string) error {
 	_, err := bot.Send(user, msg)
 	if err != nil {
 		log.Printf("Error sending message to user: %v", err)
@@ -101,19 +119,88 @@ func sendMessage(user *tb.User, msg string) error {
 	return nil
 }
 
-func setBotHandlers() error {
-	if bot == nil {
-		return ErrNilPointer
+func sendMsgWithMenu(user *tb.User, msg string) error {
+	var menu [][]tb.InlineButton
+
+	auth, err := isAuthrizedUser(user.ID)
+	if err != nil {
+		log.Printf("Error checking if user is authorized: %v", err)
+	}
+	admin, err := isBotAdmin(user.ID)
+	if err != nil {
+		log.Printf("Error checking if user is admin: %v", err)
 	}
 
-	bot.Handle("/hello", func(m *tb.Message) {
-		bot.Send(m.Sender, "hello world")
+	if admin {
+		menu = adminInlineMenu
+	} else if auth {
+		menu = authInlineMenu
+	} else {
+		menu = genericInlineMenu
+	}
+	_, err = bot.Send(user, msg, &tb.ReplyMarkup{
+		InlineKeyboard: menu,
 	})
-	bot.Handle("/userID", func(m *tb.Message) {
-		bot.Send(m.Sender, strconv.Itoa(m.Sender.ID))
-	})
-
+	if err != nil {
+		log.Printf("Error sending message to user: %v", err)
+		return ErrSendMsg
+	}
 	return nil
+}
+
+func sendMsgWithSpecificMenu(user *tb.User, msg string, menu [][]tb.InlineButton) error {
+	_, err := bot.Send(user, msg, &tb.ReplyMarkup{
+		InlineKeyboard: menu,
+	})
+	if err != nil {
+		log.Printf("Error sending message to user: %v", err)
+		return ErrSendMsg
+	}
+	return nil
+}
+
+func setBotPoller(upd *tb.Update) bool {
+	if upd.Message == nil {
+		return true
+	}
+	if upd.Message.Sender != nil {
+		err := addUser(upd.Message.Sender)
+		if err != nil {
+			log.Printf("Error in adding user info: %v", err)
+		}
+	} else {
+		log.Printf("%v", ErrIDFromMsg)
+	}
+	_, isGenericCmd := genericCommands[upd.Message.Text]
+	_, isAuthCmd := authCommands[upd.Message.Text]
+	_, isAdminCmd := adminCommands[upd.Message.Text]
+
+	started, err := isStartedUser(upd.Message.Sender.ID)
+	if err != nil {
+		log.Printf("Error checking if user is started: %v", err)
+	}
+	if !started && upd.Message.Text != "/start" {
+		return false
+	}
+
+	auth, err := isAuthrizedUser(upd.Message.Sender.ID)
+	if err != nil {
+		log.Printf("Error checking if user is authorized: %v", err)
+	}
+	admin, err := isBotAdmin(upd.Message.Sender.ID)
+	if err != nil {
+		log.Printf("Error checking if user is admin: %v", err)
+	}
+	if isAdminCmd && !admin {
+		return false
+	}
+	if isAuthCmd && !auth {
+		return false
+	}
+	if !isGenericCmd {
+		return false
+	}
+	return true
 }
 
 func botStart() error {
@@ -122,7 +209,7 @@ func botStart() error {
 	}
 
 	go bot.Start()
-	isStartedBot = true
+	botStatus.isStarted = true
 	log.Printf("Started %s", bot.Me.Username)
 
 	return nil
@@ -134,7 +221,7 @@ func botStop() error {
 	}
 	log.Printf("Stopping %s", bot.Me.Username)
 	bot.Stop()
-	isStartedBot = false
+	botStatus.isStarted = false
 	log.Println("Bot stopped")
 
 	return nil

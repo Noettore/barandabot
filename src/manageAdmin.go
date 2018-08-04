@@ -68,7 +68,6 @@ func removeBotAdmins() error {
 		}
 		return returnErr
 	})
-	//for _, token := range tokens {
 	for _, botAdmin := range botAdmins {
 		adminID, err := strconv.Atoi(botAdmin)
 		if err != nil {
@@ -84,6 +83,35 @@ func removeBotAdmins() error {
 		return ErrRemoveAdmin
 	}
 	return nil
+}
+
+func hasBotAdmins() (bool, error) {
+	if redisClient == nil {
+		return false, ErrNilPointer
+	}
+
+	adminNum, err := redisClient.SCard(adminUsers).Result()
+	if err != nil {
+		log.Printf("Error retrieving number of admins: %v", err)
+		return false, ErrRedisRetrieveSet
+	}
+
+	if adminNum <= 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func isBotAdmin(userID int) (bool, error) {
+	if redisClient == nil {
+		return false, ErrNilPointer
+	}
+	admin, err := redisClient.SIsMember(adminUsers, strconv.Itoa(userID)).Result()
+	if err != nil {
+		log.Printf("Error checking if ID is bot admin: %v", err)
+		return false, ErrRedisCheckSet
+	}
+	return admin, nil
 }
 
 func addBotAdmin(newAdminID string) error {
@@ -126,11 +154,24 @@ func addBotAdmin(newAdminID string) error {
 			return ErrAddUser
 		}
 	}
+	isAuth, err := isAuthrizedUser(ID)
+	if err != nil {
+		log.Printf("Error checking if ID is authorized: %v", err)
+		return ErrAddAdmin
+	}
+	if !isAuth {
+		err = authorizeUser(ID, true)
+		if err != nil {
+			log.Printf("Error authorizing user: %v", err)
+			return ErrAddAuthUser
+		}
+	}
 	err = redisClient.SAdd(adminUsers, adminID).Err()
 	if err != nil {
 		log.Printf("Error in adding new admin ID: %v", err)
 		return ErrRedisAddSet
 	}
+	botStatus.hasAdmin = true
 
 	err = authorizeUser(ID, true)
 	if err != nil {
@@ -142,7 +183,7 @@ func addBotAdmin(newAdminID string) error {
 		log.Printf("Error getting user info: %v", err)
 		return ErrGetUser
 	}
-	err = sendMessage(user, newAdminMsg)
+	err = sendMsg(user, newAdminMsg)
 	if err != nil {
 		log.Printf("Error sending message to new admin: %v", err)
 		return ErrSendMsg
@@ -165,11 +206,18 @@ func removeBotAdmin(adminID int) error {
 		log.Printf("Error getting user info: %v", err)
 		return ErrGetUser
 	}
-	err = sendMessage(user, delAdminMsg)
+	err = sendMsg(user, delAdminMsg)
 	if err != nil {
 		log.Printf("Error sending message to removed admin: %v", err)
 		return ErrSendMsg
 	}
+
+	hasAdmin, err := hasBotAdmins()
+	if err != nil {
+		log.Printf("Error checking if bot has admins: %v", err)
+		return ErrRedisRetrieveSet
+	}
+	botStatus.hasAdmin = hasAdmin
 
 	return nil
 }

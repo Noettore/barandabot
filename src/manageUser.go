@@ -74,6 +74,38 @@ func getUserInfo(userID int) (*tb.User, error) {
 	return jsonUser, nil
 }
 
+func isStartedUser(userID int) (bool, error) {
+	if redisClient == nil {
+		return false, ErrNilPointer
+	}
+	started, err := redisClient.SIsMember(startedUsers, strconv.Itoa(userID)).Result()
+	if err != nil {
+		log.Printf("Error checking if user is started: %v", err)
+		return false, ErrRedisCheckSet
+	}
+	return started, nil
+}
+
+func startUser(userID int, started bool) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
+	if started {
+		err := redisClient.SAdd(startedUsers, strconv.Itoa(userID)).Err()
+		if err != nil {
+			log.Printf("Error adding token to set: %v", err)
+			return ErrRedisAddSet
+		}
+	} else {
+		err := redisClient.SRem(startedUsers, strconv.Itoa(userID)).Err()
+		if err != nil {
+			log.Printf("Error removing token from set: %v", err)
+			return ErrRedisRemSet
+		}
+	}
+	return nil
+}
+
 func isAuthrizedUser(userID int) (bool, error) {
 	if redisClient == nil {
 		return false, ErrNilPointer

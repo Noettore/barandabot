@@ -8,13 +8,14 @@ import (
 )
 
 const (
-	botToken    = "botToken"
-	botInfo     = "botInfo"
-	usersID     = "usersID"
-	usersInfo   = "usersInfo"
-	usersGroups = "usersGroups"
-	authUsers   = "authUsers"
-	adminUsers  = "adminUsers"
+	botToken     = "botToken"
+	botInfo      = "botInfo"
+	usersID      = "usersID"
+	usersInfo    = "usersInfo"
+	usersGroups  = "usersGroups"
+	startedUsers = "startedUsers"
+	authUsers    = "authUsers"
+	adminUsers   = "adminUsers"
 )
 
 var redisClient *redis.Client

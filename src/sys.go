@@ -82,7 +82,7 @@ func getFlags() error {
 }
 
 func exit() error {
-	if isStartedBot {
+	if botStatus.isStarted {
 		log.Printf("Stopping %s", bot.Me.Username)
 		bot.Stop()
 		log.Println("Bot stopped")
@@ -99,7 +99,7 @@ func exit() error {
 func mainMenu() *wmenu.Menu {
 	menu := wmenu.NewMenu("What do you want to do?")
 	menu.LoopOnInvalid()
-	if !isStartedBot {
+	if !botStatus.isStarted {
 		menu.Option("Start bot", nil, true, func(opt wmenu.Opt) error {
 			return botStart()
 		})
@@ -107,7 +107,7 @@ func mainMenu() *wmenu.Menu {
 			return setBotToken("")
 		})
 	}
-	if isStartedBot {
+	if botStatus.isStarted {
 		menu.Option("Stop bot", nil, true, func(opt wmenu.Opt) error {
 			return botStop()
 		})
@@ -115,9 +115,11 @@ func mainMenu() *wmenu.Menu {
 	menu.Option("Add bot admin(s)", nil, false, func(opt wmenu.Opt) error {
 		return addBotAdmins(nil)
 	})
-	menu.Option("Remove bot admin(s)", nil, false, func(opt wmenu.Opt) error {
-		return removeBotAdmins()
-	})
+	if botStatus.hasAdmin {
+		menu.Option("Remove bot admin(s)", nil, false, func(opt wmenu.Opt) error {
+			return removeBotAdmins()
+		})
+	}
 	menu.Option("Exit", nil, false, func(opt wmenu.Opt) error {
 		return exit()
 	})
@@ -127,15 +129,17 @@ func mainMenu() *wmenu.Menu {
 
 func mainMenuLoop() error {
 	menu := mainMenu()
-	botStatus := isStartedBot
+	botStarted := botStatus.isStarted
+	hasAdmin := botStatus.hasAdmin
 	fmt.Println(welcomeMessage)
 	for {
 		err := menu.Run()
 		if err != nil {
 			log.Printf("Error in main menu: %v", err)
 		}
-		if botStatus != isStartedBot {
-			botStatus = isStartedBot
+		if botStarted != botStatus.isStarted || hasAdmin != botStatus.hasAdmin {
+			botStarted = botStatus.isStarted
+			hasAdmin = botStatus.hasAdmin
 			menu = mainMenu()
 		}
 	}
