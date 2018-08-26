@@ -54,7 +54,7 @@ func (i *stringSlice) Set(values string) error {
 func getFlags() error {
 	const (
 		defaultInteractive = true
-		interactiveUsage   = "False if the bot isn't executed on a tty"
+		interactiveUsage   = "true/false if you want interactive/non-interactive usage"
 		defaultAddr        = "127.0.0.1:6379"
 		addrUsage          = "The address of the redis instance"
 		defaultPwd         = ""

@@ -12,7 +12,8 @@ import (
 type userGroup int
 
 const (
-	ugSoprano userGroup = iota
+	ugEsterno userGroup = iota
+	ugSoprano
 	ugContralto
 	ugTenore
 	ugBasso
@@ -39,6 +40,12 @@ func addUser(user *tb.User) error {
 	if err != nil {
 		log.Printf("Error adding user info in hash: %v", err)
 		return ErrRedisAddHash
+	}
+
+	err = setUserGroups(user.ID, ugEsterno)
+	if err != nil {
+		log.Printf("Error setting user default group: %v", err)
+		return ErrRedisAddSet
 	}
 
 	return nil
@@ -86,11 +93,11 @@ func isStartedUser(userID int) (bool, error) {
 	return started, nil
 }
 
-func startUser(userID int, started bool) error {
+func startUser(userID int, start bool) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
-	if started {
+	if start {
 		err := redisClient.SAdd(startedUsers, strconv.Itoa(userID)).Err()
 		if err != nil {
 			log.Printf("Error adding token to set: %v", err)
@@ -145,6 +152,11 @@ func setUserGroups(userID int, groups ...userGroup) error {
 	var csvGroups string
 	for _, group := range groups {
 		csvGroups += strconv.Itoa(int(group)) + ","
+		err := redisClient.SAdd("ug"+strconv.Itoa(int(group)), strconv.Itoa(userID)).Err()
+		if err != nil {
+			log.Printf("Error adding user to usergroup set: %v", err)
+			return ErrRedisAddSet
+		}
 	}
 	err := redisClient.HSet(usersGroups, strconv.Itoa(userID), csvGroups).Err()
 	if err != nil {
@@ -162,7 +174,7 @@ func getUserGroups(userID int) ([]userGroup, error) {
 
 	csvGroups, err := redisClient.HGet(usersGroups, strconv.Itoa(userID)).Result()
 	if err != nil {
-		log.Printf("Error retrieving user groups: %v", err)
+		log.Printf("Error retriving user groups: %v", err)
 		return nil, ErrRedisRetrieveHash
 	}
 	var retGroups []userGroup
@@ -176,4 +188,48 @@ func getUserGroups(userID int) ([]userGroup, error) {
 		retGroups = append(retGroups, userGroup(intGroup))
 	}
 	return retGroups, nil
+}
+
+func getUsersInGroup(group userGroup) ([]int, error) {
+	users, err := redisClient.SMembers("ug" + strconv.Itoa(int(group))).Result()
+	if err != nil {
+		log.Printf("Error retriving users in group: %v", err)
+		return nil, ErrRedisRetrieveSet
+	}
+	var retUsers []int
+	for _, user := range users {
+		intUser, err := strconv.Atoi(user)
+		if err != nil {
+			log.Printf("Error converting user ID: %v", err)
+			return nil, ErrAtoiConv
+		}
+		retUsers = append(retUsers, intUser)
+	}
+	return retUsers, nil
+}
+
+func convertUserGroups(groups []userGroup) []string {
+	var stringGroups []string
+	for _, group := range groups {
+		switch group {
+		case ugEsterno:
+			stringGroups = append(stringGroups, "Esterno al coro")
+		case ugSoprano:
+			stringGroups = append(stringGroups, "Soprano")
+		case ugContralto:
+			stringGroups = append(stringGroups, "Contralto")
+		case ugTenore:
+			stringGroups = append(stringGroups, "Tenore")
+		case ugBasso:
+			stringGroups = append(stringGroups, "Basso")
+		case ugCommissario:
+			stringGroups = append(stringGroups, "Commissario")
+		case ugReferente:
+			stringGroups = append(stringGroups, "Referente")
+		case ugPreparatore:
+			stringGroups = append(stringGroups, "Preparatore")
+		}
+	}
+
+	return stringGroups
 }

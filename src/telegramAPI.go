@@ -18,25 +18,16 @@ const (
 	alreadyStartedMsg string = "Si, mi dica, che c'è?! Sono qui!"
 	restartMsg        string = "Eccomi, sono tornato! Ha bisogno? Mi dica pure!"
 	stopMsg           string = "Mi assenterò per qualche istante, d'altra parte anch'io ho pur diritto alla mia vita privata. Masino mi attende!"
+	unstoppableMsg    string = "Non ci siamo... Io l'ho nominata AMMINISTRATORE, cosa crede?! Questo ruolo esige impegno! Non può certo bloccarmi!"
 	newAdminMsg       string = "Beh allora, vediamo... Ah si, la nomino amministratore! Da grandi poteri derivano grandi responsabilità. Mi raccomando, non me ne faccia pentire!"
 	delAdminMsg       string = "Ecco, che le avevo detto?! Mi sembrava di essere stato chiaro! Dovrò sollevarla dall'incarico... Mi spiace molto ma da ora in avanti non sarà più amministratore"
+	menuMsg           string = "Ecco a lei, questo è l'elenco di tutto ciò che può chiedermi. Non mi disturbi con altre richieste!"
+	contactMsg        string = "*BarandaBot*" +
+		"\nSe hai domande, suggerimenti o se vuoi segnalare bug e altri malfunzionamenti puoi contattare l'Altissimo con i seguenti mezzi di comunicazione:" +
+		"\n- \xF0\x9F\x90\xA6 _Piccione viaggiatore_: PlusCode - P99W+4Q Pisa, PI" +
+		"\n- \xF0\x9F\x93\xA7 _Mail_: telebot.corounipi@gmail.com" +
+		"\n- \xF0\x9F\x93\x82 _GitHub_: https://github.com/Noettore/barandaBot"
 )
-
-var genericCommands = map[string]bool{
-	"/start":          true,
-	"/stop":           true,
-	"/menu":           true,
-	"/prossimoEvento": true,
-}
-var authCommands = map[string]bool{
-	"/prossimaProvaSezione": true,
-	"/prossimaProvaInsieme": true,
-}
-var adminCommands = map[string]bool{
-	"/autorizzaUtente": true,
-	"/aggiungiAdmin":   true,
-	"/rimuoviAdmin":    true,
-}
 
 var bot *tb.Bot
 var botStatus botBool
@@ -55,6 +46,8 @@ var (
 	ErrBotInit = errors.New("telegram: error in bot initialization")
 	//ErrBotConn is thrown when there is a connection problem
 	ErrBotConn = errors.New("telegram: cannot connect to bot")
+	//ErrSetLastMsg is thrown when it's not possible to set last message per user in hash
+	ErrSetLastMsg = errors.New("cannot set last message per user")
 )
 
 func botInit() error {
@@ -107,55 +100,6 @@ func botInit() error {
 	}
 	botStatus.hasAdmin = hasAdmin
 
-	return nil
-}
-
-func sendMsg(user *tb.User, msg string) error {
-	_, err := bot.Send(user, msg)
-	if err != nil {
-		log.Printf("Error sending message to user: %v", err)
-		return ErrSendMsg
-	}
-	return nil
-}
-
-func sendMsgWithMenu(user *tb.User, msg string) error {
-	var menu [][]tb.InlineButton
-
-	auth, err := isAuthrizedUser(user.ID)
-	if err != nil {
-		log.Printf("Error checking if user is authorized: %v", err)
-	}
-	admin, err := isBotAdmin(user.ID)
-	if err != nil {
-		log.Printf("Error checking if user is admin: %v", err)
-	}
-
-	if admin {
-		menu = adminInlineMenu
-	} else if auth {
-		menu = authInlineMenu
-	} else {
-		menu = genericInlineMenu
-	}
-	_, err = bot.Send(user, msg, &tb.ReplyMarkup{
-		InlineKeyboard: menu,
-	})
-	if err != nil {
-		log.Printf("Error sending message to user: %v", err)
-		return ErrSendMsg
-	}
-	return nil
-}
-
-func sendMsgWithSpecificMenu(user *tb.User, msg string, menu [][]tb.InlineButton) error {
-	_, err := bot.Send(user, msg, &tb.ReplyMarkup{
-		InlineKeyboard: menu,
-	})
-	if err != nil {
-		log.Printf("Error sending message to user: %v", err)
-		return ErrSendMsg
-	}
 	return nil
 }
 
