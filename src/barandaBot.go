@@ -25,10 +25,18 @@ func main() {
 
 	if cmdFlags.interactive {
 		mainMenuLoop()
-	} else if cmdFlags.token != "" {
-		err = setBotToken(cmdFlags.token)
-		if err == ErrAddToken {
-			log.Printf("Error in adding bot tokens: %v", err)
+	} else {
+		if cmdFlags.token != "" {
+			err = setBotToken(cmdFlags.token)
+			if err == ErrAddToken {
+				log.Printf("Error in adding bot tokens: %v", err)
+			}
+		}
+		if cmdFlags.mediaPath != "" {
+			err = setMediaDir(cmdFlags.mediaPath)
+			if err != nil {
+				log.Printf("Error in setting the media dir: %v", err)
+			}
 		}
 	}
 }

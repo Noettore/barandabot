@@ -129,17 +129,40 @@ func authorizeUser(userID int, authorized bool) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
+	isAuthUser, err := isAuthrizedUser(userID)
+	if err != nil {
+		log.Printf("Error checking if user is authorized: %v", err)
+	}
+	if isAuthUser {
+		return nil
+	}
+
+	user, err := getUserInfo(userID)
+	if err != nil {
+		log.Printf("Error getting user info: %v", err)
+		return ErrGetUser
+	}
 	if authorized {
 		err := redisClient.SAdd(authUsers, strconv.Itoa(userID)).Err()
 		if err != nil {
 			log.Printf("Error adding token to set: %v", err)
 			return ErrRedisAddSet
 		}
+		err = sendMsg(user, newAuthMsg, true)
+		if err != nil {
+			log.Printf("Error sending message to new authorized user: %v", err)
+			return ErrSendMsg
+		}
 	} else {
 		err := redisClient.SRem(authUsers, strconv.Itoa(userID)).Err()
 		if err != nil {
 			log.Printf("Error removing token from set: %v", err)
 			return ErrRedisRemSet
+		}
+		err = sendMsg(user, delAuthMsg, true)
+		if err != nil {
+			log.Printf("Error sending message to removed authorized user: %v", err)
+			return ErrSendMsg
 		}
 	}
 	return nil
@@ -180,12 +203,14 @@ func getUserGroups(userID int) ([]userGroup, error) {
 	var retGroups []userGroup
 	groups := strings.Split(csvGroups, ",")
 	for _, group := range groups {
-		intGroup, err := strconv.Atoi(group)
-		if err != nil {
-			log.Printf("Error converting user group: %v", err)
-			return nil, ErrAtoiConv
+		if group != "" {
+			intGroup, err := strconv.Atoi(group)
+			if err != nil {
+				log.Printf("Error converting user group: %v", err)
+				return nil, ErrAtoiConv
+			}
+			retGroups = append(retGroups, userGroup(intGroup))
 		}
-		retGroups = append(retGroups, userGroup(intGroup))
 	}
 	return retGroups, nil
 }
@@ -232,4 +257,49 @@ func convertUserGroups(groups []userGroup) []string {
 	}
 
 	return stringGroups
+}
+
+func getUserDescription(u *tb.User) (string, error) {
+	userGroups, err := getUserGroups(u.ID)
+	if err != nil {
+		log.Printf("Error retriving user groups: %v", err)
+		return "", ErrRedisRetrieveHash
+	}
+	stringGroups := convertUserGroups(userGroups)
+
+	isAdmin, err := isBotAdmin(u.ID)
+	if err != nil {
+		log.Printf("Error checking if user is admin: %v", err)
+		return "", ErrRedisCheckSet
+	}
+	isAuth, err := isAuthrizedUser(u.ID)
+	if err != nil {
+		log.Printf("Error checking if user is authorized: %v", err)
+		return "", ErrRedisCheckSet
+	}
+
+	msg := "\xF0\x9F\x91\xA4 *INFORMAZIONI UTENTE*" +
+		"\n- *Nome*: " + u.FirstName +
+		"\n- *Username*: " + u.Username +
+		"\n- *ID*: " + strconv.Itoa(u.ID) +
+		"\n- *Gruppi*: "
+
+	for i, group := range stringGroups {
+		msg += group
+		if i <= len(stringGroups)-2 {
+			msg += ", "
+		}
+	}
+
+	msg += "\n- *Tipo utente*: "
+
+	if isAdmin {
+		msg += "Admin"
+	} else if isAuth {
+		msg += "Autorizzato"
+	} else {
+		msg += "Utente semplice"
+	}
+
+	return msg, nil
 }

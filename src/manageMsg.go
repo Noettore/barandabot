@@ -8,12 +8,16 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
-func closeMsgMenu(storedMsg *tb.StoredMessage) error {
-	_, err := bot.EditReplyMarkup(storedMsg, &tb.ReplyMarkup{
-		InlineKeyboard: nil,
-	})
+func modifyPrevMsg(userID int, storedMsg *tb.StoredMessage, newMsg string, newOptions *tb.SendOptions) error {
+	msg, err := bot.Edit(storedMsg, newMsg, newOptions)
 	if err != nil {
-		log.Printf("Error modifying the message: %v", err)
+		log.Printf("Error modifying previous message: %v", err)
+		return ErrSendMsg
+	}
+	err = setLastMsgPerUser(userID, msg)
+	if err != nil {
+		log.Printf("Error setting last msg per user: %v", err)
+		return ErrSetLastMsg
 	}
 
 	return nil
@@ -53,32 +57,13 @@ func getLastMsgPerUser(userID int) (*tb.StoredMessage, error) {
 	return jsonMsg, nil
 }
 
-func sendMsg(user *tb.User, msg string) error {
-	sentMsg, err := bot.Send(user, msg, &tb.SendOptions{
-		ParseMode: "Markdown",
-	})
-	if err != nil {
-		log.Printf("Error sending message to user: %v", err)
-		return ErrSendMsg
-	}
-	storedMsg, err := getLastMsgPerUser(user.ID)
-	if err != nil {
-		log.Printf("Error retriving last message per user: %v", err)
-	} else {
-		err = closeMsgMenu(storedMsg)
-		if err != nil {
-			log.Printf("Error modifying the message: %v", err)
-		}
-	}
-	err = setLastMsgPerUser(user.ID, sentMsg)
-	if err != nil {
-		log.Printf("Error setting last msg per user: %v", err)
-		return ErrSetLastMsg
-	}
+func sendMsg(user *tb.User, msg string, new bool) error {
+	sendMsgWithSpecificMenu(user, msg, nil, new)
+
 	return nil
 }
 
-func sendMsgWithMenu(user *tb.User, msg string) error {
+func sendMsgWithMenu(user *tb.User, msg string, new bool) error {
 	var menu [][]tb.InlineButton
 
 	auth, err := isAuthrizedUser(user.ID)
@@ -97,57 +82,55 @@ func sendMsgWithMenu(user *tb.User, msg string) error {
 	} else {
 		menu = genericInlineMenu
 	}
-	sentMsg, err := bot.Send(user, msg, &tb.SendOptions{
-		ReplyMarkup: &tb.ReplyMarkup{
-			InlineKeyboard: menu,
-		},
-		ParseMode: "Markdown",
-	})
-	if err != nil {
-		log.Printf("Error sending message to user: %v", err)
-		return ErrSendMsg
-	}
-	storedMsg, err := getLastMsgPerUser(user.ID)
-	if err != nil {
-		log.Printf("Error retriving last message per user: %v", err)
-	} else {
-		err = closeMsgMenu(storedMsg)
-		if err != nil {
-			log.Printf("Error modifying the message: %v", err)
-		}
-	}
-	err = setLastMsgPerUser(user.ID, sentMsg)
-	if err != nil {
-		log.Printf("Error setting last msg per user: %v", err)
-		return ErrSetLastMsg
-	}
+	sendMsgWithSpecificMenu(user, msg, menu, new)
+
 	return nil
 }
 
-func sendMsgWithSpecificMenu(user *tb.User, msg string, menu [][]tb.InlineButton) error {
-	sentMsg, err := bot.Send(user, msg, &tb.SendOptions{
-		ReplyMarkup: &tb.ReplyMarkup{
-			InlineKeyboard: menu,
-		},
-		ParseMode: "Markdown",
-	})
-	if err != nil {
-		log.Printf("Error sending message to user: %v", err)
-		return ErrSendMsg
-	}
-	storedMsg, err := getLastMsgPerUser(user.ID)
-	if err != nil {
-		log.Printf("Error retriving last message per user: %v", err)
-	} else {
-		err = closeMsgMenu(storedMsg)
+func sendMsgWithSpecificMenu(user *tb.User, msg string, menu [][]tb.InlineButton, new bool) error {
+	if !new {
+		storedMsg, err := getLastMsgPerUser(user.ID)
 		if err != nil {
-			log.Printf("Error modifying the message: %v", err)
+			log.Printf("Error retriving last message per user: %v", err)
+			sentMsg, err := bot.Send(user, msg, &tb.SendOptions{
+				ReplyMarkup:           &tb.ReplyMarkup{InlineKeyboard: menu},
+				DisableWebPagePreview: true,
+				ParseMode:             tb.ModeMarkdown,
+			})
+			if err != nil {
+				log.Printf("Error sending message to user: %v", err)
+				return ErrSendMsg
+			}
+			err = setLastMsgPerUser(user.ID, sentMsg)
+			if err != nil {
+				log.Printf("Error setting last msg per user: %v", err)
+				return ErrSetLastMsg
+			}
 		}
-	}
-	err = setLastMsgPerUser(user.ID, sentMsg)
-	if err != nil {
-		log.Printf("Error setting last msg per user: %v", err)
-		return ErrSetLastMsg
+		err = modifyPrevMsg(user.ID, storedMsg, msg, &tb.SendOptions{
+			ReplyMarkup:           &tb.ReplyMarkup{InlineKeyboard: menu},
+			DisableWebPagePreview: true,
+			ParseMode:             tb.ModeMarkdown,
+		})
+		if err != nil {
+			log.Printf("Error sending message to user: %v", err)
+			return ErrSendMsg
+		}
+	} else {
+		sentMsg, err := bot.Send(user, msg, &tb.SendOptions{
+			ReplyMarkup:           &tb.ReplyMarkup{InlineKeyboard: menu},
+			DisableWebPagePreview: true,
+			ParseMode:             tb.ModeMarkdown,
+		})
+		if err != nil {
+			log.Printf("Error sending message to user: %v", err)
+			return ErrSendMsg
+		}
+		err = setLastMsgPerUser(user.ID, sentMsg)
+		if err != nil {
+			log.Printf("Error setting last msg per user: %v", err)
+			return ErrSetLastMsg
+		}
 	}
 
 	return nil

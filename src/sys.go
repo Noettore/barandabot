@@ -19,6 +19,7 @@ type flags struct {
 	redisPwd    string
 	redisDB     int
 	token       string
+	mediaPath   string
 }
 
 var cmdFlags flags
@@ -63,7 +64,20 @@ func getFlags() error {
 		dbUsage            = "The database to be selected after connecting to redis instance"
 		defaultToken       = ""
 		tokenUsage         = "A bot token to be added to the set of tokens"
+		defaultMediaPath   = ""
+		mediaPathUsage     = "A path to be used as media directory"
 	)
+	/* var defaultMediaPath string
+	usr, err := user.Current()
+	if err != nil {
+		log.Printf("Error retriving current user home dir: %v. Using current directory", err)
+		os.MkdirAll("./.barandaBot/img", os.ModePerm)
+		defaultMediaPath = "./.barandaBot/img"
+
+	} else {
+		os.MkdirAll(usr.HomeDir+"/.barandaBot/img", os.ModePerm)
+		defaultMediaPath = usr.HomeDir + "/.barandaBot/img"
+	} */
 
 	flag.BoolVar(&(cmdFlags.interactive), "interactive", defaultInteractive, interactiveUsage)
 	flag.BoolVar(&(cmdFlags.interactive), "i", defaultInteractive, interactiveUsage+"(shorthand)")
@@ -75,6 +89,8 @@ func getFlags() error {
 	flag.IntVar(&(cmdFlags.redisDB), "d", defaultDB, dbUsage+"(shorthand)")
 	flag.StringVar(&(cmdFlags.token), "token", defaultToken, tokenUsage)
 	flag.StringVar(&(cmdFlags.token), "t", defaultToken, tokenUsage+"(shorthand")
+	flag.StringVar(&(cmdFlags.mediaPath), "mediaPath", defaultMediaPath, mediaPathUsage)
+	flag.StringVar(&(cmdFlags.mediaPath), "m", defaultMediaPath, mediaPathUsage+"(shorthand")
 
 	flag.Parse()
 
@@ -96,6 +112,17 @@ func exit() error {
 	return nil
 }
 
+func isValidPath(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
+}
+
 func mainMenu() *wmenu.Menu {
 	menu := wmenu.NewMenu("What do you want to do?")
 	menu.LoopOnInvalid()
@@ -105,6 +132,9 @@ func mainMenu() *wmenu.Menu {
 		})
 		menu.Option("Set bot token", nil, false, func(opt wmenu.Opt) error {
 			return setBotToken("")
+		})
+		menu.Option("Set media path", nil, false, func(opt wmenu.Opt) error {
+			return setMediaDir("")
 		})
 	}
 	if botStatus.isStarted {

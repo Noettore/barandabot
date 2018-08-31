@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"strconv"
 
 	tb "gopkg.in/tucnak/telebot.v2"
 )
@@ -12,7 +11,9 @@ var genericCommands = map[string]bool{
 	"/stop":           true,
 	"/menu":           true,
 	"/userInfo":       true,
+	"/config":         true,
 	"/botInfo":        true,
+	"/help":           true,
 	"/prossimoEvento": true,
 }
 var authCommands = map[string]bool{
@@ -20,12 +21,13 @@ var authCommands = map[string]bool{
 	"/prossimaProvaInsieme": true,
 }
 var adminCommands = map[string]bool{
-	"/authUser": true,
-	"/addAdmin": true,
-	"/delAdmin": true,
+	"/authUser":   true,
+	"/deAuthUser": true,
+	"/addAdmin":   true,
+	"/delAdmin":   true,
 }
 
-func startCmd(u *tb.User) {
+func startCmd(u *tb.User, newMsg bool) {
 	var msg string
 
 	isUser, err := isUser(u.ID)
@@ -45,13 +47,17 @@ func startCmd(u *tb.User) {
 		if isUser {
 			msg = restartMsg
 		} else {
+			err := addUser(u)
+			if err != nil {
+				log.Printf("Error adding user: %v", err)
+			}
 			msg = startMsg
 		}
 	} else {
 		msg = alreadyStartedMsg
 	}
 
-	err = sendMsgWithMenu(u, msg)
+	err = sendMsgWithMenu(u, msg, newMsg)
 	if err != nil {
 		log.Printf("Error sending message to started user: %v", err)
 	}
@@ -63,7 +69,8 @@ func stopCmd(u *tb.User) {
 		log.Printf("Error checking if user is admin: %v", err)
 	}
 	if admin {
-		err := sendMsgWithMenu(u, unstoppableMsg)
+		//img := &tb.Photo{File: tb.FromDisk()}
+		err := sendMsgWithMenu(u, unstoppableMsg, false)
 		if err != nil {
 			log.Printf("Error sending message to unstoppable user: %v", err)
 		}
@@ -72,47 +79,35 @@ func stopCmd(u *tb.User) {
 		if err != nil {
 			log.Printf("Error starting user: %v", err)
 		}
-		err := sendMsgWithSpecificMenu(u, stopMsg, startMenu)
+		err := sendMsgWithSpecificMenu(u, stopMsg, startMenu, false)
 		if err != nil {
 			log.Printf("Error sending message to stopped user: %v", err)
 		}
 	}
 }
 
-func userInfoCmd(u *tb.User) {
-	userGroups, err := getUserGroups(u.ID)
-	if err != nil {
-		log.Printf("Error retriving user groups: %v", err)
-	}
-	stringGroups := convertUserGroups(userGroups)
-
-	isAdmin, err := isBotAdmin(u.ID)
-	if err != nil {
-		log.Printf("Error checking if user is admin: %v", err)
-	}
-	isAuth, err := isAuthrizedUser(u.ID)
-	if err != nil {
-		log.Printf("Error checking if user is authorized: %v", err)
-	}
-
-	msg := "\xF0\x9F\x91\xA4 *INFORMAZIONI UTENTE*" +
-		"\n- *Nome*: " + u.FirstName +
-		"\n- *Username*: " + u.Username +
-		"\n- *ID*: " + strconv.Itoa(u.ID) +
-		"\n- *Gruppi*: "
-
-	for _, group := range stringGroups {
-		msg += group + ", "
-	}
-
-	msg += "\n- *Tipo utente*: "
-
-	if isAdmin {
-		msg += "Admin"
-	} else if isAuth {
-		msg += "Autorizzato"
+func authUserCmd(u *tb.User, payload string) {
+	if payload == "" {
+		err := sendMsg(u, authHowToMsg, true)
+		if err != nil {
+			log.Printf("Error in sending message: %v", err)
+		}
 	} else {
-		msg += "Utente semplice"
+		desc, err := getUserDescription(u)
+		if err != nil {
+			log.Printf("Error retriving user description: %v", err)
+		}
+		menu := authUserMenu
+		authUserMenu[0][0].Data = payload
+		authUserMenu[0][1].Data = payload
+		authUserMenu[1][0].Data = payload
+		authUserMenu[1][1].Data = payload
+		err = sendMsgWithSpecificMenu(u, "Stai per autorizzare il seguente utente:\n"+
+			desc+
+			"\nSe le informazioni sono corrette fai 'tap' sui gruppi di appartenenza dell'utente da autorizzare, altrimenti *torna al menù principale ed annulla l'autorizzazione*",
+			menu, true)
+		if err != nil {
+			log.Printf("Error in sending message: %v", err)
+		}
 	}
-	err = sendMsgWithSpecificMenu(u, msg, goBackMenu)
 }

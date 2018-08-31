@@ -173,17 +173,12 @@ func addBotAdmin(newAdminID string) error {
 	}
 	botStatus.hasAdmin = true
 
-	err = authorizeUser(ID, true)
-	if err != nil {
-		log.Printf("Error in adding new admin ID in authorized users: %v", err)
-		return ErrAddAuthUser
-	}
 	user, err := getUserInfo(ID)
 	if err != nil {
 		log.Printf("Error getting user info: %v", err)
 		return ErrGetUser
 	}
-	err = sendMsg(user, newAdminMsg)
+	err = sendMsgWithMenu(user, newAdminMsg, false)
 	if err != nil {
 		log.Printf("Error sending message to new admin: %v", err)
 		return ErrSendMsg
@@ -206,7 +201,7 @@ func removeBotAdmin(adminID int) error {
 		log.Printf("Error getting user info: %v", err)
 		return ErrGetUser
 	}
-	err = sendMsg(user, delAdminMsg)
+	err = sendMsgWithMenu(user, delAdminMsg, false)
 	if err != nil {
 		log.Printf("Error sending message to removed admin: %v", err)
 		return ErrSendMsg

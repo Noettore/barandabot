@@ -17,6 +17,7 @@ const (
 	authUsers      = "authUsers"
 	adminUsers     = "adminUsers"
 	lastMsgPerUser = "lastMsgPerUser"
+	mediaPath      = "mediaPath"
 )
 
 var redisClient *redis.Client
