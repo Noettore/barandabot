@@ -3,17 +3,18 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/go-redis/redis"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
 type userGroup int
 
 const (
-	ugEsterno userGroup = iota
-	ugSoprano
+	ugSoprano userGroup = iota
 	ugContralto
 	ugTenore
 	ugBasso
@@ -40,12 +41,6 @@ func addUser(user *tb.User) error {
 	if err != nil {
 		log.Printf("Error adding user info in hash: %v", err)
 		return ErrRedisAddHash
-	}
-
-	err = setUserGroups(user.ID, ugEsterno)
-	if err != nil {
-		log.Printf("Error setting user default group: %v", err)
-		return ErrRedisAddSet
 	}
 
 	return nil
@@ -125,7 +120,7 @@ func isAuthrizedUser(userID int) (bool, error) {
 	return auth, nil
 }
 
-func authorizeUser(userID int, authorized bool) error {
+func authorizeUser(userID int, authorize bool) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
@@ -133,7 +128,7 @@ func authorizeUser(userID int, authorized bool) error {
 	if err != nil {
 		log.Printf("Error checking if user is authorized: %v", err)
 	}
-	if isAuthUser {
+	if isAuthUser && authorize {
 		return nil
 	}
 
@@ -142,7 +137,7 @@ func authorizeUser(userID int, authorized bool) error {
 		log.Printf("Error getting user info: %v", err)
 		return ErrGetUser
 	}
-	if authorized {
+	if authorize {
 		err := redisClient.SAdd(authUsers, strconv.Itoa(userID)).Err()
 		if err != nil {
 			log.Printf("Error adding token to set: %v", err)
@@ -172,6 +167,7 @@ func setUserGroups(userID int, groups ...userGroup) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
+	sort.Slice(groups, func(i, j int) bool { return groups[i] < groups[j] })
 	var csvGroups string
 	for _, group := range groups {
 		csvGroups += strconv.Itoa(int(group)) + ","
@@ -196,9 +192,12 @@ func getUserGroups(userID int) ([]userGroup, error) {
 	}
 
 	csvGroups, err := redisClient.HGet(usersGroups, strconv.Itoa(userID)).Result()
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		log.Printf("Error retriving user groups: %v", err)
 		return nil, ErrRedisRetrieveHash
+	}
+	if err == redis.Nil {
+		return nil, nil
 	}
 	var retGroups []userGroup
 	groups := strings.Split(csvGroups, ",")
@@ -216,6 +215,9 @@ func getUserGroups(userID int) ([]userGroup, error) {
 }
 
 func getUsersInGroup(group userGroup) ([]int, error) {
+	if redisClient == nil {
+		return nil, ErrNilPointer
+	}
 	users, err := redisClient.SMembers("ug" + strconv.Itoa(int(group))).Result()
 	if err != nil {
 		log.Printf("Error retriving users in group: %v", err)
@@ -233,12 +235,22 @@ func getUsersInGroup(group userGroup) ([]int, error) {
 	return retUsers, nil
 }
 
+func isUserInGroup(userID int, group userGroup) (bool, error) {
+	if redisClient == nil {
+		return false, ErrNilPointer
+	}
+	is, err := redisClient.SIsMember("ug"+strconv.Itoa(int(group)), strconv.Itoa(userID)).Result()
+	if err != nil {
+		log.Printf("Error checking if user is in group: %v", err)
+		return false, ErrRedisCheckSet
+	}
+	return is, nil
+}
+
 func convertUserGroups(groups []userGroup) []string {
 	var stringGroups []string
 	for _, group := range groups {
 		switch group {
-		case ugEsterno:
-			stringGroups = append(stringGroups, "Esterno al coro")
 		case ugSoprano:
 			stringGroups = append(stringGroups, "Soprano")
 		case ugContralto:
@@ -281,13 +293,15 @@ func getUserDescription(u *tb.User) (string, error) {
 	msg := "\xF0\x9F\x91\xA4 *INFORMAZIONI UTENTE*" +
 		"\n- *Nome*: " + u.FirstName +
 		"\n- *Username*: " + u.Username +
-		"\n- *ID*: " + strconv.Itoa(u.ID) +
-		"\n- *Gruppi*: "
+		"\n- *ID*: " + strconv.Itoa(u.ID)
 
-	for i, group := range stringGroups {
-		msg += group
-		if i <= len(stringGroups)-2 {
-			msg += ", "
+	if len(stringGroups) > 0 {
+		msg += "\n- *Gruppi*: "
+		for i, group := range stringGroups {
+			msg += group
+			if i <= len(stringGroups)-2 {
+				msg += ", "
+			}
 		}
 	}
 

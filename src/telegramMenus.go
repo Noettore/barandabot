@@ -1,6 +1,9 @@
 package main
 
 import (
+	"log"
+	"strconv"
+
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
@@ -156,6 +159,134 @@ func setBotCallbacks() error {
 	bot.Handle(&sendMsgBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 
+	})
+	bot.Handle(&authUGSopranoBtn, func(c *tb.Callback) {
+		userID, err := strconv.Atoi(c.Data)
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+		}
+		err = addUserGroupCmd(userID, ugSoprano)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Impossibile autorizzare l'utente",
+				ShowAlert: true,
+			})
+		} else {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Autorizzato utente " + c.Data + "e aggiunto al gruppo Soprani",
+				ShowAlert: true,
+			})
+		}
+	})
+	bot.Handle(&authUGContraltoBtn, func(c *tb.Callback) {
+		userID, err := strconv.Atoi(c.Data)
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+		}
+		err = addUserGroupCmd(userID, ugContralto)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Impossibile autorizzare l'utente",
+				ShowAlert: true,
+			})
+		} else {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Autorizzato utente " + c.Data + "e aggiunto al gruppo Contralti",
+				ShowAlert: true,
+			})
+		}
+
+	})
+	bot.Handle(&authUGTenoreBtn, func(c *tb.Callback) {
+		userID, err := strconv.Atoi(c.Data)
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+		}
+		err = addUserGroupCmd(userID, ugTenore)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Impossibile autorizzare l'utente",
+				ShowAlert: true,
+			})
+		} else {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Autorizzato utente " + c.Data + "e aggiunto al gruppo Tenori",
+				ShowAlert: true,
+			})
+		}
+	})
+	bot.Handle(&authUGBassoBtn, func(c *tb.Callback) {
+		userID, err := strconv.Atoi(c.Data)
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+		}
+		err = addUserGroupCmd(userID, ugBasso)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Impossibile autorizzare l'utente",
+				ShowAlert: true,
+			})
+		} else {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Autorizzato utente " + c.Data + "e aggiunto al gruppo Bassi",
+				ShowAlert: true,
+			})
+		}
+	})
+	bot.Handle(&authUGCommissarioBtn, func(c *tb.Callback) {
+		userID, err := strconv.Atoi(c.Data)
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+		}
+		err = addUserGroupCmd(userID, ugCommissario)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Impossibile autorizzare l'utente",
+				ShowAlert: true,
+			})
+		} else {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Autorizzato utente " + c.Data + "e aggiunto al gruppo Commissari",
+				ShowAlert: true,
+			})
+		}
+
+	})
+	bot.Handle(&authUGReferenteBtn, func(c *tb.Callback) {
+		userID, err := strconv.Atoi(c.Data)
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+		}
+		err = addUserGroupCmd(userID, ugReferente)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Impossibile autorizzare l'utente",
+				ShowAlert: true,
+			})
+		} else {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Autorizzato utente " + c.Data + "e aggiunto al gruppo Referenti",
+				ShowAlert: true,
+			})
+		}
+	})
+	bot.Handle(&authUGPreparatoreBtn, func(c *tb.Callback) {
+		userID, err := strconv.Atoi(c.Data)
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+		}
+		err = addUserGroupCmd(userID, ugPreparatore)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Impossibile autorizzare l'utente",
+				ShowAlert: true,
+			})
+		} else {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      "Autorizzato utente " + c.Data + "e aggiunto al gruppo Preparatori",
+				ShowAlert: true,
+			})
+		}
 	})
 
 	return nil
