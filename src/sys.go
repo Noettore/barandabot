@@ -138,7 +138,7 @@ func mainMenu() *wmenu.Menu {
 		})
 	}
 	if botStatus.isStarted {
-		menu.Option("Stop bot", nil, true, func(opt wmenu.Opt) error {
+		menu.Option("Stop bot", nil, false, func(opt wmenu.Opt) error {
 			return botStop()
 		})
 	}
