@@ -35,7 +35,7 @@ func setBotHandlers() error {
 		authUserCmd(m.Sender, m.Payload)
 	})
 	bot.Handle("/deAuthUser", func(m *tb.Message) {
-
+		deAuthUserCmd(m.Sender, m.Payload)
 	})
 
 	bot.Handle(tb.OnText, func(m *tb.Message) {

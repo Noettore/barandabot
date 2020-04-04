@@ -18,8 +18,10 @@ var genericCommands = map[string]bool{
 	"/prossimoEvento": true,
 }
 var authCommands = map[string]bool{
+	"/prossimaProva":        true,
 	"/prossimaProvaSezione": true,
 	"/prossimaProvaInsieme": true,
+	"/ultimaMail":           true,
 }
 var adminCommands = map[string]bool{
 	"/authUser":   true,
@@ -87,27 +89,62 @@ func stopCmd(u *tb.User) {
 	}
 }
 
-func authUserCmd(u *tb.User, payload string) {
+func authUserCmd(sender *tb.User, payload string) {
 	if payload == "" {
-		err := sendMsg(u, authHowToMsg, true)
+		err := sendMsgWithMenu(sender, authHowToMsg, true)
 		if err != nil {
 			log.Printf("Error in sending message: %v", err)
 		}
 	} else {
-		//TODO check if payload is valid ID
-		desc, err := getUserDescription(u)
+		userID, err := strconv.Atoi(payload)
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+		}
+		user, err := getUserInfo(userID)
+		if err != nil {
+			log.Printf("Error getting user info: %v", err)
+			return
+		}
+
+		desc, err := getUserDescription(user)
 		if err != nil {
 			log.Printf("Error retriving user description: %v", err)
 		}
+
+		userGroups, err := getUserGroups(user.ID)
+		if err != nil {
+			log.Printf("Error retriving user groups: %v", err)
+		}
+
 		menu := authUserMenu
-		menu[0][0].Data = payload
-		menu[0][1].Data = payload
-		menu[1][0].Data = payload
-		menu[1][1].Data = payload
-		menu[2][0].Data = payload
-		menu[2][1].Data = payload
-		menu[2][2].Data = payload
-		err = sendMsgWithSpecificMenu(u, "Stai per autorizzare il seguente utente:\n"+
+		menu[0][0].Data = strconv.Itoa(user.ID)
+		menu[0][1].Data = strconv.Itoa(user.ID)
+		menu[1][0].Data = strconv.Itoa(user.ID)
+		menu[1][1].Data = strconv.Itoa(user.ID)
+		menu[2][0].Data = strconv.Itoa(user.ID)
+		menu[2][1].Data = strconv.Itoa(user.ID)
+		menu[2][2].Data = strconv.Itoa(user.ID)
+
+		for _, group := range userGroups {
+			switch group {
+			case ugSoprano:
+				menu[0][0].Text = ""
+			case ugContralto:
+				menu[0][1].Text = ""
+			case ugTenore:
+				menu[1][0].Text = ""
+			case ugBasso:
+				menu[1][1].Text = ""
+			case ugCommissario:
+				menu[2][0].Text = ""
+			case ugReferente:
+				menu[2][1].Text = ""
+			case ugPreparatore:
+				menu[2][2].Text = ""
+			}
+		}
+
+		err = sendMsgWithSpecificMenu(sender, "Stai per autorizzare il seguente utente:\n"+
 			desc+
 			"\nSe le informazioni sono corrette fai 'tap' sui gruppi di appartenenza dell'utente da autorizzare, altrimenti *torna al menù principale ed annulla l'autorizzazione*",
 			menu, true)
@@ -117,9 +154,9 @@ func authUserCmd(u *tb.User, payload string) {
 	}
 }
 
-func deAuthUserCmd(u *tb.User, payload string) {
+func deAuthUserCmd(sender *tb.User, payload string) {
 	if payload == "" {
-		err := sendMsg(u, deAuthHowToMsg, true)
+		err := sendMsgWithMenu(sender, deAuthHowToMsg, true)
 		if err != nil {
 			log.Printf("Error in sending message: %v", err)
 		}
@@ -128,29 +165,86 @@ func deAuthUserCmd(u *tb.User, payload string) {
 		if err != nil {
 			log.Printf("Error converting string to int: %v", err)
 		}
-		authorizeUser(userID, false)
-		//TODO
+		user, err := getUserInfo(userID)
+		if err != nil {
+			log.Printf("Error getting user info: %v", err)
+			return
+		}
+
+		desc, err := getUserDescription(user)
+		if err != nil {
+			log.Printf("Error retriving user description: %v", err)
+		}
+
+		menu := authUserMenu
+		menu[0][0].Data = strconv.Itoa(user.ID) + "+remove"
+		menu[0][1].Data = strconv.Itoa(user.ID) + "+remove"
+		menu[1][0].Data = strconv.Itoa(user.ID) + "+remove"
+		menu[1][1].Data = strconv.Itoa(user.ID) + "+remove"
+		menu[2][0].Data = strconv.Itoa(user.ID) + "+remove"
+		menu[2][1].Data = strconv.Itoa(user.ID) + "+remove"
+		menu[2][2].Data = strconv.Itoa(user.ID) + "+remove"
+
+		if is, _ := isUserInGroup(user.ID, ugSoprano); !is {
+			menu[0][0].Text = ""
+		}
+		if is, _ := isUserInGroup(user.ID, ugContralto); !is {
+			menu[0][1].Text = ""
+		}
+		if is, _ := isUserInGroup(user.ID, ugTenore); !is {
+			menu[1][0].Text = ""
+		}
+		if is, _ := isUserInGroup(user.ID, ugBasso); !is {
+			menu[1][1].Text = ""
+		}
+		if is, _ := isUserInGroup(user.ID, ugCommissario); !is {
+			menu[2][0].Text = ""
+		}
+		if is, _ := isUserInGroup(user.ID, ugReferente); !is {
+			menu[2][1].Text = ""
+		}
+		if is, _ := isUserInGroup(user.ID, ugPreparatore); !is {
+			menu[2][2].Text = ""
+		}
+
+		err = sendMsgWithSpecificMenu(sender, "Stai per deautorizzare il seguente utente:\n"+
+			desc+
+			"\nSe le informazioni sono corrette fai 'tap' sui gruppi da cui deautorizzare l'utente, altrimenti *torna al menù principale ed annulla l'autorizzazione*",
+			menu, true)
+		if err != nil {
+			log.Printf("Error in sending message: %v", err)
+		}
+
 	}
 }
 
-func addUserGroupCmd(userID int, group userGroup) error {
+func addUserGroupCmd(userID int, group userGroup, add bool) error {
 	userGroups, err := getUserGroups(userID)
 	if err != nil {
 		log.Printf("Error retriving user groups: %v", err)
+		return ErrAddAuthUser
 	}
 	is, err := isUserInGroup(userID, group)
 	if err != nil {
 		log.Printf("Error checking if user is in group: %v", err)
-	}
-	if is {
-		return ErrAddUser
-	}
-	userGroups = append(userGroups, group)
-	err = setUserGroups(userID, userGroups...)
-	if err != nil {
-		log.Printf("Error adding user in group: %v", err)
 		return ErrAddAuthUser
 	}
+	if is && !add {
+		//REMOVE USER FROM GROUP
+		//TODO
+	} else if !is && add {
+		userGroups = append(userGroups, group)
+		err = setUserGroups(userID, userGroups...)
+		if err != nil {
+			log.Printf("Error adding user in group: %v", err)
+			return ErrAddAuthUser
+		}
 
+		err = authorizeUser(userID, true)
+		if err != nil {
+			log.Printf("Error authorizing user: %v", err)
+			return ErrAddAuthUser
+		}
+	}
 	return nil
 }

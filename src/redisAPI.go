@@ -37,6 +37,10 @@ var (
 	ErrRedisAddHash = errors.New("redis: couldn't add key in hash")
 	//ErrRedisDelHash is thrown when it's not possible to remove a key from a hash
 	ErrRedisDelHash = errors.New("redis: couldn't remove key from hash")
+	//ErrRedisAddString is thrown when it's not possible to add a string
+	ErrRedisAddString = errors.New("redis: couldn't add string")
+	//ErrRedisDelString is thrown when it's not possible to remove a string
+	ErrRedisDelString = errors.New("redis: couldn't remove string")
 	//ErrRedisRetrieveHash is thrown when it's not possible to retrieve a key from a hash
 	ErrRedisRetrieveHash = errors.New("redis: couldn't retrieve key from hash")
 	//ErrTokenParsing is thrown when it's not possible to parse the bot token

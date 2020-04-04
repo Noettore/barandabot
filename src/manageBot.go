@@ -67,27 +67,27 @@ func getBotToken() (string, error) {
 	return token, nil
 }
 
-func addBotInfo(botToken string, botUser string) error {
+func addBotInfo(botUser string) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
-	err := redisClient.HSet(botInfo, botToken, botUser).Err()
+	err := redisClient.Set(botInfo, botUser, 0).Err()
 	if err != nil {
 		log.Printf("Error in adding bot info: %v", err)
-		return ErrRedisAddHash
+		return ErrRedisAddString
 	}
 
 	return nil
 }
 
-func removeBotInfo(botToken string) error {
+func removeBotInfo() error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
-	err := redisClient.HDel(botInfo, botToken).Err()
+	err := redisClient.Del(botInfo).Err()
 	if err != nil {
 		log.Printf("Error in removing bot info: %v", err)
-		return ErrRedisDelHash
+		return ErrRedisDelString
 	}
 	return nil
 }

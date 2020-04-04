@@ -143,7 +143,7 @@ func authorizeUser(userID int, authorize bool) error {
 			log.Printf("Error adding token to set: %v", err)
 			return ErrRedisAddSet
 		}
-		err = sendMsg(user, newAuthMsg, true)
+		err = sendMsgWithMenu(user, newAuthMsg, true)
 		if err != nil {
 			log.Printf("Error sending message to new authorized user: %v", err)
 			return ErrSendMsg

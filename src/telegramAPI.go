@@ -21,7 +21,7 @@ const (
 	unstoppableMsg    string = "Non ci siamo... Io l'ho nominata AMMINISTRATORE, cosa crede?! Questo ruolo esige impegno! Non può certo bloccarmi!"
 	wrongCmdMsg       string = "Non capisco, si spieghi meglio! Per cortesia, basta basta! La prego! Non so di cosa sta parlando!"
 	authHowToMsg      string = "Per autorizzare un utente invia un messaggio con scritto \n`/authUser ID_UTENTE`\n sostituendo `ID_UTENTE` con l'ID che ti é stato comunicato dall'utente da autorizzare"
-	deAuthHowToMsg    string = "Per deautorizzare un utente invia un messaggio con scritto \n`/authUser USERNAME`\n sostituendo `USERNAME` con il nome utente da deautorizzare"
+	deAuthHowToMsg    string = "Per deautorizzare un utente invia un messaggio con scritto \n`/deAuthUser ID_UTENTE`\n sostituendo `ID_UTENTE` con il nome utente da deautorizzare"
 	newAuthMsg        string = "Benvenuto! Da ora in poi lei fa ufficialmente parte del magnifico *Coro dell'Università di Pisa*! Deve sentirsi onorato."
 	delAuthMsg        string = "Capisco, quindi se ne sta andando... Beh un po' mi dispiace, devo ammetterlo. Se ripassa da queste parti sarà sempre il benvenuto! Arrivederci."
 	newAdminMsg       string = "Beh allora, vediamo... Ah si, la nomino amministratore! Da grandi poteri derivano grandi responsabilità. Mi raccomando, non me ne faccia pentire!"
@@ -94,7 +94,7 @@ func botInit() error {
 		return ErrBotInit
 	}
 
-	err = addBotInfo(token, bot.Me.Username)
+	err = addBotInfo(bot.Me.Username)
 	if err != nil {
 		log.Printf("Error: bot %s info couldn't be added: %v", bot.Me.Username, err)
 		return ErrBotInit

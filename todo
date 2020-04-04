@@ -1,10 +1,7 @@
-menu con gorutine:
-	start bot
-	stop bot
-	stop daemon
-	info bot
-	delete bot -> per nome e non per token (segreto)
-
 redis hash per bot (si puó usare la struct tb.Bot come interface?):
 	rinnovare info ad ogni start del bot
-	visualizzare info bot
+	visualizzare info bot. Tipo?
+
+SuperAdmin? Menú giá presente
+
+Controllare stoppedUser anche se comando inviato tramite menu. Dove farlo?
