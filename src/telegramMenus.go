@@ -162,6 +162,11 @@ func groupCallback(c *tb.Callback, group userGroup) {
 			Text:      authAlert,
 			ShowAlert: true,
 		})
+		if add {
+			authUserCmd(c.Sender, dataContent[0], false)
+		} else {
+			deAuthUserCmd(c.Sender, dataContent[0], false)
+		}
 	}
 }
 

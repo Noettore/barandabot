@@ -19,7 +19,7 @@ func setBotHandlers() error {
 	})
 	bot.Handle("/userInfo", func(m *tb.Message) {
 		msg, _ := getUserDescription(m.Sender)
-		sendMsgWithSpecificMenu(m.Sender, msg, myInfoMenu, false)
+		sendMsgWithSpecificMenu(m.Sender, msg, myInfoMenu, true)
 	})
 	bot.Handle("/botInfo", func(m *tb.Message) {
 		sendMsgWithSpecificMenu(m.Sender, contactMsg, botInfoMenu, true)
@@ -29,13 +29,13 @@ func setBotHandlers() error {
 	})
 	bot.Handle("/config", func(m *tb.Message) {
 		msg, _ := getUserDescription(m.Sender)
-		sendMsgWithSpecificMenu(m.Sender, msg, myInfoMenu, false)
+		sendMsgWithSpecificMenu(m.Sender, msg, myInfoMenu, true)
 	})
 	bot.Handle("/authUser", func(m *tb.Message) {
-		authUserCmd(m.Sender, m.Payload)
+		authUserCmd(m.Sender, m.Payload, true)
 	})
 	bot.Handle("/deAuthUser", func(m *tb.Message) {
-		deAuthUserCmd(m.Sender, m.Payload)
+		deAuthUserCmd(m.Sender, m.Payload, true)
 	})
 
 	bot.Handle(tb.OnText, func(m *tb.Message) {

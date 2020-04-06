@@ -89,9 +89,9 @@ func stopCmd(u *tb.User) {
 	}
 }
 
-func authUserCmd(sender *tb.User, payload string) {
+func authUserCmd(sender *tb.User, payload string, newMsg bool) {
 	if payload == "" {
-		err := sendMsgWithMenu(sender, authHowToMsg, true)
+		err := sendMsgWithMenu(sender, authHowToMsg, newMsg)
 		if err != nil {
 			log.Printf("Error in sending message: %v", err)
 		}
@@ -147,16 +147,16 @@ func authUserCmd(sender *tb.User, payload string) {
 		err = sendMsgWithSpecificMenu(sender, "Stai per autorizzare il seguente utente:\n"+
 			desc+
 			"\nSe le informazioni sono corrette fai 'tap' sui gruppi di appartenenza dell'utente da autorizzare, altrimenti *torna al menù principale ed annulla l'autorizzazione*",
-			menu, true)
+			menu, newMsg)
 		if err != nil {
 			log.Printf("Error in sending message: %v", err)
 		}
 	}
 }
 
-func deAuthUserCmd(sender *tb.User, payload string) {
+func deAuthUserCmd(sender *tb.User, payload string, newMsg bool) {
 	if payload == "" {
-		err := sendMsgWithMenu(sender, deAuthHowToMsg, true)
+		err := sendMsgWithMenu(sender, deAuthHowToMsg, newMsg)
 		if err != nil {
 			log.Printf("Error in sending message: %v", err)
 		}
@@ -210,7 +210,7 @@ func deAuthUserCmd(sender *tb.User, payload string) {
 		err = sendMsgWithSpecificMenu(sender, "Stai per deautorizzare il seguente utente:\n"+
 			desc+
 			"\nSe le informazioni sono corrette fai 'tap' sui gruppi da cui deautorizzare l'utente, altrimenti *torna al menù principale ed annulla l'autorizzazione*",
-			menu, true)
+			menu, newMsg)
 		if err != nil {
 			log.Printf("Error in sending message: %v", err)
 		}
