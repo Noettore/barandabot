@@ -51,6 +51,8 @@ var (
 	ErrIDParsing = errors.New("userID: cannot parse ID")
 	//ErrIDInvalid is thrown when the string parsed isn't a valid telegram user ID
 	ErrIDInvalid = errors.New("userID: string isn't a valid telegram user ID")
+	//ErrGroupInvalid is thrown when the group parsed isn't a valid userGroup
+	ErrGroupInvalid = errors.New("group is not a valid userGroup")
 	//ErrAddToken is thrown when one or more bot token hasn't been added
 	ErrAddToken = errors.New("couldn't add one or more tokens")
 	//ErrAddUser is thrown when one or more user hasn't been added

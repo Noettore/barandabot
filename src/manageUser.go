@@ -163,7 +163,7 @@ func authorizeUser(userID int, authorize bool) error {
 	return nil
 }
 
-func setUserGroups(userID int, groups ...userGroup) error {
+func addUserGroups(userID int, groups ...userGroup) error {
 	if redisClient == nil {
 		return ErrNilPointer
 	}
@@ -181,6 +181,41 @@ func setUserGroups(userID int, groups ...userGroup) error {
 	if err != nil {
 		log.Printf("Error adding user groups to hash: %v", err)
 		return ErrRedisAddHash
+	}
+
+	return nil
+}
+
+func remUserGroups(userID int, newGroups []userGroup, remGroups ...userGroup) error {
+	if redisClient == nil {
+		return ErrNilPointer
+	}
+	sort.Slice(newGroups, func(i, j int) bool { return newGroups[i] < newGroups[j] })
+
+	for _, remGroup := range remGroups {
+		err := redisClient.SRem("ug"+strconv.Itoa(int(remGroup)), strconv.Itoa(userID)).Err()
+		if err != nil {
+			log.Printf("Error removing user from usergroup set: %v", err)
+			return ErrRedisAddSet
+		}
+	}
+
+	if len(newGroups) > 0 {
+		var csvGroups string
+		for _, group := range newGroups {
+			csvGroups += strconv.Itoa(int(group)) + ","
+		}
+		err := redisClient.HSet(usersGroups, strconv.Itoa(userID), csvGroups).Err()
+		if err != nil {
+			log.Printf("Error adding user groups to hash: %v", err)
+			return ErrRedisAddHash
+		}
+	} else {
+		err := redisClient.HDel(usersGroups, strconv.Itoa(userID)).Err()
+		if err != nil {
+			log.Printf("Error removing user from usersGroups hash: %v", err)
+			return ErrRedisAddHash
+		}
 	}
 
 	return nil
@@ -269,6 +304,27 @@ func convertUserGroups(groups []userGroup) []string {
 	}
 
 	return stringGroups
+}
+
+func getGroupName(group userGroup) (string, error) {
+	switch group {
+	case ugSoprano:
+		return "Soprano", nil
+	case ugContralto:
+		return "Contralto", nil
+	case ugTenore:
+		return "Tenore", nil
+	case ugBasso:
+		return "Basso", nil
+	case ugCommissario:
+		return "Commissario", nil
+	case ugReferente:
+		return "Referente", nil
+	case ugPreparatore:
+		return "Preparatore", nil
+	default:
+		return "", ErrGroupInvalid
+	}
 }
 
 func getUserDescription(u *tb.User) (string, error) {

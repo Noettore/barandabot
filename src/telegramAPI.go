@@ -23,9 +23,9 @@ const (
 	authHowToMsg      string = "Per autorizzare un utente invia un messaggio con scritto \n`/authUser ID_UTENTE`\n sostituendo `ID_UTENTE` con l'ID che ti é stato comunicato dall'utente da autorizzare"
 	deAuthHowToMsg    string = "Per deautorizzare un utente invia un messaggio con scritto \n`/deAuthUser ID_UTENTE`\n sostituendo `ID_UTENTE` con il nome utente da deautorizzare"
 	newAuthMsg        string = "Benvenuto! Da ora in poi lei fa ufficialmente parte del magnifico *Coro dell'Università di Pisa*! Deve sentirsi onorato."
-	delAuthMsg        string = "Capisco, quindi se ne sta andando... Beh un po' mi dispiace, devo ammetterlo. Se ripassa da queste parti sarà sempre il benvenuto! Arrivederci."
+	delAuthMsg        string = "Allora arrivederci! Beh un po' mi dispiace, devo ammetterlo. Se ripassa da queste parti sarà sempre il benvenuto! Addio, e grazie per tutto il pesce!"
 	newAdminMsg       string = "Beh allora, vediamo... Ah si, la nomino amministratore! Da grandi poteri derivano grandi responsabilità. Mi raccomando, non me ne faccia pentire!"
-	delAdminMsg       string = "Ecco, che le avevo detto?! Mi sembrava di essere stato chiaro! Dovrò sollevarla dall'incarico... Mi spiace molto ma da ora in avanti non sarà più amministratore"
+	delAdminMsg       string = "Ecco, che le avevo detto?! Mi sembrava di essere stato chiaro, eppure non ha fatto attenzione! Dovrò sollevarla dall'incarico... Mi spiace molto ma da ora in avanti non sarà più amministratore"
 	menuMsg           string = "Ecco a lei, questo è l'elenco di tutto ciò che può chiedermi. Non mi disturbi con altre richieste!"
 	contactMsg        string = "*BarandaBot*\xE2\x84\xA2" +
 		"\nSe hai domande, suggerimenti o se vuoi segnalare bug e altri malfunzionamenti puoi contattare l'Altissimo con i seguenti mezzi di comunicazione:" +

@@ -5,3 +5,5 @@ redis hash per bot (si puó usare la struct tb.Bot come interface?):
 SuperAdmin? Menú giá presente
 
 Controllare stoppedUser anche se comando inviato tramite menu. Dove farlo?
+
+Help command con descrizione divisa per gruppo

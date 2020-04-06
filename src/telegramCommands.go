@@ -116,7 +116,7 @@ func authUserCmd(sender *tb.User, payload string) {
 			log.Printf("Error retriving user groups: %v", err)
 		}
 
-		menu := authUserMenu
+		menu := getAuthUserMenu()
 		menu[0][0].Data = strconv.Itoa(user.ID)
 		menu[0][1].Data = strconv.Itoa(user.ID)
 		menu[1][0].Data = strconv.Itoa(user.ID)
@@ -176,7 +176,7 @@ func deAuthUserCmd(sender *tb.User, payload string) {
 			log.Printf("Error retriving user description: %v", err)
 		}
 
-		menu := authUserMenu
+		menu := getAuthUserMenu()
 		menu[0][0].Data = strconv.Itoa(user.ID) + "+remove"
 		menu[0][1].Data = strconv.Itoa(user.ID) + "+remove"
 		menu[1][0].Data = strconv.Itoa(user.ID) + "+remove"
@@ -230,19 +230,36 @@ func addUserGroupCmd(userID int, group userGroup, add bool) error {
 		return ErrAddAuthUser
 	}
 	if is && !add {
-		//REMOVE USER FROM GROUP
-		//TODO
-	} else if !is && add {
-		userGroups = append(userGroups, group)
-		err = setUserGroups(userID, userGroups...)
+		if len(userGroups) <= 1 {
+			err = authorizeUser(userID, false)
+			if err != nil {
+				log.Printf("Error deauthorizing user: %v", err)
+				return ErrAddAuthUser
+			}
+		}
+		for i, ug := range userGroups {
+			if ug == group {
+				userGroups = append(userGroups[:i], userGroups[i+1:]...)
+				break
+			}
+		}
+		err = remUserGroups(userID, userGroups, group)
 		if err != nil {
 			log.Printf("Error adding user in group: %v", err)
 			return ErrAddAuthUser
 		}
-
-		err = authorizeUser(userID, true)
+	} else if !is && add {
+		if len(userGroups) == 0 {
+			err = authorizeUser(userID, true)
+			if err != nil {
+				log.Printf("Error authorizing user: %v", err)
+				return ErrAddAuthUser
+			}
+		}
+		userGroups = append(userGroups, group)
+		err = addUserGroups(userID, userGroups...)
 		if err != nil {
-			log.Printf("Error authorizing user: %v", err)
+			log.Printf("Error adding user in group: %v", err)
 			return ErrAddAuthUser
 		}
 	}

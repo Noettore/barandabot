@@ -119,7 +119,18 @@ func setBotMenus() error {
 	return nil
 }
 
-func groupCallback(c *tb.Callback, groupName string) {
+func getAuthUserMenu() [][]tb.InlineButton {
+	var authUserMenu [][]tb.InlineButton
+	authUserMenu = append(authUserMenu,
+		[]tb.InlineButton{authUGSopranoBtn, authUGContraltoBtn},
+		[]tb.InlineButton{authUGTenoreBtn, authUGBassoBtn},
+		[]tb.InlineButton{authUGCommissarioBtn, authUGReferenteBtn, authUGPreparatoreBtn},
+		[]tb.InlineButton{backBtn},
+	)
+	return authUserMenu
+}
+
+func groupCallback(c *tb.Callback, group userGroup) {
 	dataContent := strings.Split(c.Data, "+")
 	userID, err := strconv.Atoi(dataContent[0])
 	if err != nil {
@@ -128,6 +139,9 @@ func groupCallback(c *tb.Callback, groupName string) {
 	}
 	var errAlert, authAlert string
 	var add bool
+
+	groupName, err := getGroupName(group)
+
 	if len(dataContent) > 1 && dataContent[1] == "remove" {
 		add = false
 		errAlert = "Impossibile deautorizzare l'utente per il gruppo " + groupName
@@ -137,7 +151,7 @@ func groupCallback(c *tb.Callback, groupName string) {
 		errAlert = "Impossibile aggiungere l'utente al gruppo " + groupName
 		authAlert = "Utente " + dataContent[0] + " aggiunto al gruppo " + groupName
 	}
-	err = addUserGroupCmd(userID, ugContralto, add)
+	err = addUserGroupCmd(userID, group, add)
 	if err != nil {
 		bot.Respond(c, &tb.CallbackResponse{
 			Text:      errAlert,
@@ -195,25 +209,25 @@ func setBotCallbacks() error {
 
 	})
 	bot.Handle(&authUGSopranoBtn, func(c *tb.Callback) {
-		groupCallback(c, "Soprani")
+		groupCallback(c, ugSoprano)
 	})
 	bot.Handle(&authUGContraltoBtn, func(c *tb.Callback) {
-		groupCallback(c, "Contralti")
+		groupCallback(c, ugContralto)
 	})
 	bot.Handle(&authUGTenoreBtn, func(c *tb.Callback) {
-		groupCallback(c, "Tenori")
+		groupCallback(c, ugTenore)
 	})
 	bot.Handle(&authUGBassoBtn, func(c *tb.Callback) {
-		groupCallback(c, "Bassi")
+		groupCallback(c, ugBasso)
 	})
 	bot.Handle(&authUGCommissarioBtn, func(c *tb.Callback) {
-		groupCallback(c, "Commissari")
+		groupCallback(c, ugCommissario)
 	})
 	bot.Handle(&authUGReferenteBtn, func(c *tb.Callback) {
-		groupCallback(c, "Referenti")
+		groupCallback(c, ugReferente)
 	})
 	bot.Handle(&authUGPreparatoreBtn, func(c *tb.Callback) {
-		groupCallback(c, "Preparatori")
+		groupCallback(c, ugPreparatore)
 	})
 
 	return nil
