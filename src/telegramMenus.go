@@ -14,7 +14,7 @@ var (
 	authInlineMenu       [][]tb.InlineButton
 	genericInlineMenu    [][]tb.InlineButton
 	startMenu            [][]tb.InlineButton
-	myInfoMenu           [][]tb.InlineButton
+	backMenu             [][]tb.InlineButton
 	botInfoMenu          [][]tb.InlineButton
 	authUserMenu         [][]tb.InlineButton
 )
@@ -39,6 +39,10 @@ var (
 	userBtn = tb.InlineButton{
 		Unique: "user_btn",
 		Text:   "\xF0\x9F\x91\xA4 My info",
+	}
+	helpBtn = tb.InlineButton{
+		Unique: "help_btn",
+		Text:   "\xF0\x9F\x86\x98 Aiuto",
 	}
 	authBtn = tb.InlineButton{
 		Unique: "auth_btn",
@@ -107,8 +111,8 @@ func setBotMenus() error {
 	superAdminInlineMenu = append(superAdminInlineMenu, []tb.InlineButton{adminBtn, deAdminBtn})
 
 	startMenu = append(startMenu, []tb.InlineButton{startBtn})
-	myInfoMenu = append(myInfoMenu, []tb.InlineButton{backBtn})
-	botInfoMenu = append(botInfoMenu, []tb.InlineButton{stopBtn}, []tb.InlineButton{backBtn})
+	backMenu = append(backMenu, []tb.InlineButton{backBtn})
+	botInfoMenu = append(botInfoMenu, []tb.InlineButton{helpBtn, stopBtn}, []tb.InlineButton{backBtn})
 	authUserMenu = append(authUserMenu,
 		[]tb.InlineButton{authUGSopranoBtn, authUGContraltoBtn},
 		[]tb.InlineButton{authUGTenoreBtn, authUGBassoBtn},
@@ -182,17 +186,21 @@ func setBotCallbacks() error {
 
 	bot.Handle(&stopBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
-		stopCmd(c.Sender)
+		stopCmd(c.Sender, false)
 	})
 
 	bot.Handle(&userBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 		msg, _ := getUserDescription(c.Sender)
-		sendMsgWithSpecificMenu(c.Sender, msg, myInfoMenu, false)
+		sendMsgWithSpecificMenu(c.Sender, msg, backMenu, false)
 	})
 	bot.Handle(&infoBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 		sendMsgWithSpecificMenu(c.Sender, contactMsg, botInfoMenu, false)
+	})
+	bot.Handle(&helpBtn, func(c *tb.Callback) {
+		bot.Respond(c, &tb.CallbackResponse{})
+		helpCmd(c.Sender, false)
 	})
 	bot.Handle(&backBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
@@ -211,7 +219,7 @@ func setBotCallbacks() error {
 	})
 	bot.Handle(&sendMsgBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
-
+		sendMsgWithMenu(c.Sender, sendMsgHowToMsg, false)
 	})
 	bot.Handle(&authUGSopranoBtn, func(c *tb.Callback) {
 		groupCallback(c, ugSoprano)

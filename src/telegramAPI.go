@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"log"
+	"sort"
 	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -32,6 +33,9 @@ const (
 		"\n- \xF0\x9F\x90\xA6 _Piccione viaggiatore_: [Palazzo Ricci, Pisa](https://goo.gl/maps/gMUbV2eqJiL2)" +
 		"\n- \xF0\x9F\x93\xA7 _Mail_: telebot.corounipi@gmail.com" +
 		"\n- \xF0\x9F\x93\x82 _GitHub_: https://github.com/Noettore/barandaBot"
+	sendMsgHowToMsg string = "Per inviare un messaggio ad una sezione invia il comando \n`/sendMsg SEZIONE TESTO_MESSAGGIO` sostituendo `SEZIONE` con il nome della sezione a cui inviare il messaggio e `TESTO_MESSAGGIO` con il testo del messaggio che vuoi recapitare"
+	sendMsgErrMsg   string = "Puoi inviare messaggi soltanto alle sezioni cui appartieni"
+	msgReceivedMsg  string = "Hai ricevuto questo messaggio perché fai parte di una sezione del Coro UniPi. Se non vuoi piú riceverne fallo presente!"
 )
 
 var bot *tb.Bot
@@ -55,6 +59,13 @@ var (
 	ErrSetLastMsg = errors.New("cannot set last message per user")
 	//ErrInvalidPath is thrown when a path isn't valid
 	ErrInvalidPath = errors.New("path is not valid")
+)
+
+//Dynamic messages
+var (
+	helpGenericMsg string
+	helpAuthMsg    string
+	helpAdminMsg   string
 )
 
 func botInit() error {
@@ -93,6 +104,8 @@ func botInit() error {
 		log.Printf("Error setting bot callbacks: %v", err)
 		return ErrBotInit
 	}
+
+	setBotDynamicMsg()
 
 	err = addBotInfo(bot.Me.Username)
 	if err != nil {
@@ -151,13 +164,46 @@ func setBotPoller(upd *tb.Update) bool {
 	if err != nil {
 		log.Printf("Error checking if user is admin: %v", err)
 	}
-	if isAdminCmd && admin == false {
+	if isAdminCmd && !admin {
 		return false
 	}
-	if isAuthCmd && auth == false {
+	if isAuthCmd && !auth {
 		return false
 	}
 	return true
+}
+
+func setBotDynamicMsg() {
+	cmdArray := make([]string, 0, len(genericCommands))
+	for cmd, desc := range genericCommands {
+		cmdArray = append(cmdArray, cmd+": "+desc+"\n")
+	}
+	sort.Strings(cmdArray)
+	helpGenericMsg += "*Comandi del Bot*\n"
+	for _, cmd := range cmdArray {
+		helpGenericMsg += cmd
+	}
+
+	cmdArray = make([]string, 0, len(authCommands))
+	for cmd, desc := range authCommands {
+		cmdArray = append(cmdArray, cmd+": "+desc+"\n")
+	}
+	sort.Strings(cmdArray)
+	helpAuthMsg += "\n*Comandi Utenti Autenticati*\n"
+	for _, cmd := range cmdArray {
+		helpAuthMsg += cmd
+	}
+
+	cmdArray = make([]string, 0, len(adminCommands))
+	for cmd, desc := range adminCommands {
+		cmdArray = append(cmdArray, cmd+": "+desc+"\n")
+	}
+	sort.Strings(cmdArray)
+	helpAdminMsg += "\n*Comandi Amministratori*\n"
+	for _, cmd := range cmdArray {
+		helpAdminMsg += cmd
+	}
+
 }
 
 func botStart() error {

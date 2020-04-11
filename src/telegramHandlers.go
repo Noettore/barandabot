@@ -12,30 +12,33 @@ func setBotHandlers() error {
 		startCmd(m.Sender, true)
 	})
 	bot.Handle("/stop", func(m *tb.Message) {
-		stopCmd(m.Sender)
+		stopCmd(m.Sender, true)
 	})
 	bot.Handle("/menu", func(m *tb.Message) {
 		sendMsgWithMenu(m.Sender, menuMsg, true)
 	})
 	bot.Handle("/userInfo", func(m *tb.Message) {
 		msg, _ := getUserDescription(m.Sender)
-		sendMsgWithSpecificMenu(m.Sender, msg, myInfoMenu, true)
+		sendMsgWithSpecificMenu(m.Sender, msg, backMenu, true)
 	})
 	bot.Handle("/botInfo", func(m *tb.Message) {
 		sendMsgWithSpecificMenu(m.Sender, contactMsg, botInfoMenu, true)
 	})
 	bot.Handle("/help", func(m *tb.Message) {
-		sendMsgWithSpecificMenu(m.Sender, contactMsg, botInfoMenu, true)
+		helpCmd(m.Sender, true)
 	})
 	bot.Handle("/config", func(m *tb.Message) {
 		msg, _ := getUserDescription(m.Sender)
-		sendMsgWithSpecificMenu(m.Sender, msg, myInfoMenu, true)
+		sendMsgWithSpecificMenu(m.Sender, msg, backMenu, true)
 	})
 	bot.Handle("/authUser", func(m *tb.Message) {
 		authUserCmd(m.Sender, m.Payload, true)
 	})
 	bot.Handle("/deAuthUser", func(m *tb.Message) {
 		deAuthUserCmd(m.Sender, m.Payload, true)
+	})
+	bot.Handle("/sendMsg", func(m *tb.Message) {
+		sendMsgCmd(m.Sender, m.Payload, true)
 	})
 
 	bot.Handle(tb.OnText, func(m *tb.Message) {

@@ -309,21 +309,42 @@ func convertUserGroups(groups []userGroup) []string {
 func getGroupName(group userGroup) (string, error) {
 	switch group {
 	case ugSoprano:
-		return "Soprano", nil
+		return "Soprani", nil
 	case ugContralto:
-		return "Contralto", nil
+		return "Contralti", nil
 	case ugTenore:
-		return "Tenore", nil
+		return "Tenori", nil
 	case ugBasso:
-		return "Basso", nil
+		return "Bassi", nil
 	case ugCommissario:
-		return "Commissario", nil
+		return "Commissari", nil
 	case ugReferente:
-		return "Referente", nil
+		return "Referenti", nil
 	case ugPreparatore:
-		return "Preparatore", nil
+		return "Preparatori", nil
 	default:
 		return "", ErrGroupInvalid
+	}
+}
+
+func getUserGroupFromStr(group string) (userGroup, error) {
+	switch strings.ToLower(group) {
+	case "soprano", "soprani":
+		return ugSoprano, nil
+	case "contralto", "contralti":
+		return ugContralto, nil
+	case "tenore", "tenori":
+		return ugTenore, nil
+	case "basso", "bassi":
+		return ugBasso, nil
+	case "commissario", "commissari", "commissarii":
+		return ugCommissario, nil
+	case "referente", "referenti":
+		return ugReferente, nil
+	case "preparatore", "preparatori":
+		return ugPreparatore, nil
+	default:
+		return -1, ErrGroupInvalid
 	}
 }
 

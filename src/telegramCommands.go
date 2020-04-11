@@ -3,31 +3,30 @@ package main
 import (
 	"log"
 	"strconv"
+	"strings"
 
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
-var genericCommands = map[string]bool{
-	"/start":          true,
-	"/stop":           true,
-	"/menu":           true,
-	"/userInfo":       true,
-	"/config":         true,
-	"/botInfo":        true,
-	"/help":           true,
-	"/prossimoEvento": true,
+var genericCommands = map[string]string{
+	"/start":          "Far (ri)partire il bot",
+	"/stop":           "Fermare il bot",
+	"/menu":           "Visualizzare il menu principale",
+	"/userInfo":       "Visualizzare le informazioni sul mio utente",
+	"/botInfo":        "Visualizzare le informazioni sul bot",
+	"/help":           "Visualizzare questo menu di aiuto",
+	"/prossimoEvento": "Visualizzare le informazioni sul prossimo evento del coro",
 }
-var authCommands = map[string]bool{
-	"/prossimaProva":        true,
-	"/prossimaProvaSezione": true,
-	"/prossimaProvaInsieme": true,
-	"/ultimaMail":           true,
+var authCommands = map[string]string{
+	"/prossimaProva":        "Visualizzare le informazioni sulla prossima prova",
+	"/prossimaProvaSezione": "Visualizzare le informazioni sulla prossima prova di sezione",
+	"/prossimaProvaInsieme": "Visualizzare le informazioni sulla prossima prova d'insieme",
+	"/ultimaMail":           "Visualizzare l'ultima mail inviata alla sezione o a tutto il coro",
 }
-var adminCommands = map[string]bool{
-	"/authUser":   true,
-	"/deAuthUser": true,
-	"/addAdmin":   true,
-	"/delAdmin":   true,
+var adminCommands = map[string]string{
+	"/authUser":   "Autorizzare un nuovo utente o aggiungerlo a nuovi gruppi",
+	"/deAuthUser": "Deautorizzare un utente o rimuoverlo da alcuni gruppi",
+	"/sendMsg":    "Inviare un messaggio ad una o piú delle sezioni di appartenenza",
 }
 
 func startCmd(u *tb.User, newMsg bool) {
@@ -66,10 +65,11 @@ func startCmd(u *tb.User, newMsg bool) {
 	}
 }
 
-func stopCmd(u *tb.User) {
+func stopCmd(u *tb.User, newMsg bool) {
 	admin, err := isBotAdmin(u.ID)
 	if err != nil {
 		log.Printf("Error checking if user is admin: %v", err)
+		return
 	}
 	if admin {
 		//img := &tb.Photo{File: tb.FromDisk()}
@@ -82,7 +82,7 @@ func stopCmd(u *tb.User) {
 		if err != nil {
 			log.Printf("Error starting user: %v", err)
 		}
-		err := sendMsgWithSpecificMenu(u, stopMsg, startMenu, false)
+		err := sendMsgWithSpecificMenu(u, stopMsg, startMenu, newMsg)
 		if err != nil {
 			log.Printf("Error sending message to stopped user: %v", err)
 		}
@@ -264,4 +264,76 @@ func addUserGroupCmd(userID int, group userGroup, add bool) error {
 		}
 	}
 	return nil
+}
+
+func helpCmd(user *tb.User, newMsg bool) {
+	var msg string
+	msg += helpGenericMsg
+
+	isAuth, err := isAuthrizedUser(user.ID)
+	if err != nil {
+		log.Printf("Error checking if user is authorized: %v", err)
+	} else if isAuth {
+		msg += helpAuthMsg
+	}
+
+	isAdmin, err := isBotAdmin(user.ID)
+	if err != nil {
+		log.Printf("Error checking if user is admin: %v", err)
+	} else if isAdmin {
+		msg += helpAdminMsg
+	}
+
+	err = sendMsgWithSpecificMenu(user, msg, backMenu, newMsg)
+	if err != nil {
+		log.Printf("Error sending message to started user: %v", err)
+	}
+}
+
+func sendMsgCmd(sender *tb.User, payload string, newMsg bool) {
+	arg := strings.SplitN(payload, " ", 2)
+	if payload == "" || len(arg) != 2 || arg[1] == "" || arg[1] == " " {
+		err := sendMsgWithMenu(sender, sendMsgHowToMsg, newMsg)
+		if err != nil {
+			log.Printf("Error in sending message: %v", err)
+		}
+	} else {
+		group, err := getUserGroupFromStr(arg[0])
+		if err != nil {
+			log.Printf("Error in parsing the userGroup: %v", err)
+			return
+		}
+
+		is, err := isUserInGroup(sender.ID, group)
+		if err != nil {
+			log.Printf("Error checking if sender is in sendTo group: %v", err)
+			return
+		}
+		if is {
+			users, err := getUsersInGroup(group)
+			if err != nil {
+				log.Printf("Error retrieving users in sendTo group: %v", err)
+				return
+			}
+			for _, userID := range users {
+				user, err := getUserInfo(userID)
+				if err != nil {
+					log.Printf("Error retrieving user info from id: %v", err)
+					continue
+				}
+				groupName, _ := getGroupName(group)
+				msg := "*Messaggio inviato da " + sender.FirstName + " a tutta la sezione " + groupName + "*\n" + arg[1]
+				err = sendMsg(user, msg, true)
+				if err != nil {
+					log.Printf("Error sending msg to user: %v", err)
+				}
+				err = sendMsgWithMenu(user, msgReceivedMsg, true)
+			}
+		} else {
+			err = sendMsgWithMenu(sender, sendMsgErrMsg, true)
+			if err != nil {
+				log.Printf("Error sending msg to user: %v", err)
+			}
+		}
+	}
 }

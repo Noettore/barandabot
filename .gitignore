@@ -27,6 +27,7 @@ _testmain.go
 # ---> VisualStudioCode
 .settings
 *.code-workspace
+.vscode
 
 # Redis
 *.rdb
