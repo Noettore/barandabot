@@ -310,25 +310,16 @@ func sendMsgCmd(sender *tb.User, payload string, newMsg bool) {
 			return
 		}
 		if is {
-			users, err := getUsersInGroup(group)
+			ugName, _ := getGroupName(group)
+			//sendMsgToGroup(sender, group, arg[1])
+			msgID, err := addNewGroupMsg(sender, group, arg[1])
 			if err != nil {
-				log.Printf("Error retrieving users in sendTo group: %v", err)
+				log.Printf("Error adding new groupMsg in db: %v", err)
 				return
 			}
-			for _, userID := range users {
-				user, err := getUserInfo(userID)
-				if err != nil {
-					log.Printf("Error retrieving user info from id: %v", err)
-					continue
-				}
-				groupName, _ := getGroupName(group)
-				msg := "*Messaggio inviato da " + sender.FirstName + " a tutta la sezione " + groupName + "*\n" + arg[1]
-				err = sendMsg(user, msg, true)
-				if err != nil {
-					log.Printf("Error sending msg to user: %v", err)
-				}
-				err = sendMsgWithMenu(user, msgReceivedMsg, true)
-			}
+			msg := "*Sei sicuro di voler inviare il seguente messaggio al gruppo " + ugName + "?*\n" + arg[1]
+			sendMsgMenu[0][0].Data = strconv.FormatInt(msgID, 10)
+			sendMsgWithSpecificMenu(sender, msg, sendMsgMenu, true)
 		} else {
 			err = sendMsgWithMenu(sender, sendMsgErrMsg, true)
 			if err != nil {

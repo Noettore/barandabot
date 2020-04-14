@@ -17,6 +17,7 @@ const (
 	authUsers      = "authUsers"
 	adminUsers     = "adminUsers"
 	lastMsgPerUser = "lastMsgPerUser"
+	groupMsgs      = "groupMsgs"
 	mediaPath      = "mediaPath"
 )
 
@@ -43,6 +44,10 @@ var (
 	ErrRedisDelString = errors.New("redis: couldn't remove string")
 	//ErrRedisRetrieveHash is thrown when it's not possible to retrieve a key from a hash
 	ErrRedisRetrieveHash = errors.New("redis: couldn't retrieve key from hash")
+	//ErrRedisAddList is thrown when it's not possible to add a new value in a list
+	ErrRedisAddList = errors.New("redis: couldn't add value in list")
+	//ErrRedisSetList is thrown when it's not possible to update a value in a list
+	ErrRedisSetList = errors.New("redis: couldn't set value in list")
 	//ErrTokenParsing is thrown when it's not possible to parse the bot token
 	ErrTokenParsing = errors.New("botToken: cannot parse token")
 	//ErrTokenInvalid is thrown when the string parsed isn't a valid telegram bot token

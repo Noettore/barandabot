@@ -17,6 +17,7 @@ var (
 	backMenu             [][]tb.InlineButton
 	botInfoMenu          [][]tb.InlineButton
 	authUserMenu         [][]tb.InlineButton
+	sendMsgMenu          [][]tb.InlineButton
 )
 
 var (
@@ -30,7 +31,7 @@ var (
 	}
 	backBtn = tb.InlineButton{
 		Unique: "back_btn",
-		Text:   "\xF0\x9F\x94\x99 Torna al menù principale",
+		Text:   "\xF0\x9F\x94\x99 Torna indietro",
 	}
 	infoBtn = tb.InlineButton{
 		Unique: "info_btn",
@@ -46,11 +47,11 @@ var (
 	}
 	authBtn = tb.InlineButton{
 		Unique: "auth_btn",
-		Text:   "\xE2\x9C\x85 Autorizza utente",
+		Text:   "\xE2\x9E\x95 Autorizza utente",
 	}
 	deAuthBtn = tb.InlineButton{
 		Unique: "de_auth_btn",
-		Text:   "\xE2\x9D\x8C Deautorizza utente",
+		Text:   "\xE2\x9E\x96 Deautorizza utente",
 	}
 	adminBtn = tb.InlineButton{
 		Unique: "admin_btn",
@@ -63,6 +64,10 @@ var (
 	sendMsgBtn = tb.InlineButton{
 		Unique: "send_msg_btn",
 		Text:   "\xF0\x9F\x93\xA3 Invia messaggio alla sezione",
+	}
+	confirmSendBtn = tb.InlineButton{
+		Unique: "confirm_send_btn",
+		Text:   "\xE2\x9C\x85 Conferma",
 	}
 	authUGSopranoBtn = tb.InlineButton{
 		Unique: "auth_ugSoprano_btn",
@@ -119,6 +124,7 @@ func setBotMenus() error {
 		[]tb.InlineButton{authUGCommissarioBtn, authUGReferenteBtn, authUGPreparatoreBtn},
 		[]tb.InlineButton{backBtn},
 	)
+	sendMsgMenu = append(sendMsgMenu, []tb.InlineButton{confirmSendBtn, backBtn})
 
 	return nil
 }
@@ -194,51 +200,70 @@ func setBotCallbacks() error {
 		msg, _ := getUserDescription(c.Sender)
 		sendMsgWithSpecificMenu(c.Sender, msg, backMenu, false)
 	})
+
 	bot.Handle(&infoBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 		sendMsgWithSpecificMenu(c.Sender, contactMsg, botInfoMenu, false)
 	})
+
 	bot.Handle(&helpBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 		helpCmd(c.Sender, false)
 	})
+
 	bot.Handle(&backBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 		sendMsgWithMenu(c.Sender, menuMsg, false)
 	})
 
+	//TODO
+	bot.Handle(&confirmSendBtn, func(c *tb.Callback) {
+		bot.Respond(c, &tb.CallbackResponse{
+			Text:      sentStartedMsg,
+			ShowAlert: true,
+		})
+		sendMsgToGroup(c.Data)
+	})
+
 	bot.Handle(&authBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 		sendMsgWithMenu(c.Sender, authHowToMsg, false)
-
 	})
+
 	bot.Handle(&deAuthBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 		sendMsgWithMenu(c.Sender, deAuthHowToMsg, false)
-
 	})
+
 	bot.Handle(&sendMsgBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{})
 		sendMsgWithMenu(c.Sender, sendMsgHowToMsg, false)
 	})
+
 	bot.Handle(&authUGSopranoBtn, func(c *tb.Callback) {
 		groupCallback(c, ugSoprano)
 	})
+
 	bot.Handle(&authUGContraltoBtn, func(c *tb.Callback) {
 		groupCallback(c, ugContralto)
 	})
+
 	bot.Handle(&authUGTenoreBtn, func(c *tb.Callback) {
 		groupCallback(c, ugTenore)
 	})
+
 	bot.Handle(&authUGBassoBtn, func(c *tb.Callback) {
 		groupCallback(c, ugBasso)
 	})
+
 	bot.Handle(&authUGCommissarioBtn, func(c *tb.Callback) {
 		groupCallback(c, ugCommissario)
 	})
+
 	bot.Handle(&authUGReferenteBtn, func(c *tb.Callback) {
 		groupCallback(c, ugReferente)
 	})
+
 	bot.Handle(&authUGPreparatoreBtn, func(c *tb.Callback) {
 		groupCallback(c, ugPreparatore)
 	})

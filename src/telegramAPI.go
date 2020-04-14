@@ -36,6 +36,7 @@ const (
 	sendMsgHowToMsg string = "Per inviare un messaggio ad una sezione invia il comando \n`/sendMsg SEZIONE TESTO_MESSAGGIO` sostituendo `SEZIONE` con il nome della sezione a cui inviare il messaggio e `TESTO_MESSAGGIO` con il testo del messaggio che vuoi recapitare"
 	sendMsgErrMsg   string = "Puoi inviare messaggi soltanto alle sezioni cui appartieni"
 	msgReceivedMsg  string = "Hai ricevuto questo messaggio perché fai parte di una sezione del Coro UniPi. Se non vuoi piú riceverne fallo presente!"
+	sentStartedMsg  string = "Invio del messaggio iniziato."
 )
 
 var bot *tb.Bot
