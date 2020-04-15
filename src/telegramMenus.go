@@ -69,32 +69,32 @@ var (
 		Unique: "confirm_send_btn",
 		Text:   "\xE2\x9C\x85 Conferma",
 	}
-	authUGSopranoBtn = tb.InlineButton{
-		Unique: "auth_ugSoprano_btn",
+	ugSopranoBtn = tb.InlineButton{
+		Unique: "ugSoprano_btn",
 		Text:   "\xF0\x9F\x91\xA7 Soprani",
 	}
-	authUGContraltoBtn = tb.InlineButton{
-		Unique: "auth_ugContralto_btn",
+	ugContraltoBtn = tb.InlineButton{
+		Unique: "ugContralto_btn",
 		Text:   "\xF0\x9F\x91\xA9 Contralti",
 	}
-	authUGTenoreBtn = tb.InlineButton{
-		Unique: "auth_ugTenore_btn",
+	ugTenoreBtn = tb.InlineButton{
+		Unique: "ugTenore_btn",
 		Text:   "\xF0\x9F\x91\xA6 Tenori",
 	}
-	authUGBassoBtn = tb.InlineButton{
-		Unique: "auth_ugBasso_btn",
+	ugBassoBtn = tb.InlineButton{
+		Unique: "ugBasso_btn",
 		Text:   "\xF0\x9F\x91\xA8 Bassi",
 	}
-	authUGCommissarioBtn = tb.InlineButton{
-		Unique: "auth_ugCommissario_btn",
+	ugCommissarioBtn = tb.InlineButton{
+		Unique: "ugCommissario_btn",
 		Text:   "\xF0\x9F\x93\x9D Commissari",
 	}
-	authUGReferenteBtn = tb.InlineButton{
-		Unique: "auth_ugReferente_btn",
+	ugReferenteBtn = tb.InlineButton{
+		Unique: "ugReferente_btn",
 		Text:   "\xF0\x9F\x93\x8B Referenti",
 	}
-	authUGPreparatoreBtn = tb.InlineButton{
-		Unique: "auth_ugPreparatori_btn",
+	ugPreparatoreBtn = tb.InlineButton{
+		Unique: "ugPreparatori_btn",
 		Text:   "\xF0\x9F\x8E\xB9 Preparatori",
 	}
 )
@@ -118,64 +118,99 @@ func setBotMenus() error {
 	startMenu = append(startMenu, []tb.InlineButton{startBtn})
 	backMenu = append(backMenu, []tb.InlineButton{backBtn})
 	botInfoMenu = append(botInfoMenu, []tb.InlineButton{helpBtn, stopBtn}, []tb.InlineButton{backBtn})
-	authUserMenu = append(authUserMenu,
-		[]tb.InlineButton{authUGSopranoBtn, authUGContraltoBtn},
-		[]tb.InlineButton{authUGTenoreBtn, authUGBassoBtn},
-		[]tb.InlineButton{authUGCommissarioBtn, authUGReferenteBtn, authUGPreparatoreBtn},
+	/* authUserMenu = append(authUserMenu,
+		[]tb.InlineButton{ugSopranoBtn, ugContraltoBtn},
+		[]tb.InlineButton{ugTenoreBtn, ugBassoBtn},
+		[]tb.InlineButton{ugCommissarioBtn, ugReferenteBtn, ugPreparatoreBtn},
 		[]tb.InlineButton{backBtn},
-	)
+	) */
 	sendMsgMenu = append(sendMsgMenu, []tb.InlineButton{confirmSendBtn, backBtn})
 
 	return nil
 }
 
-func getAuthUserMenu() [][]tb.InlineButton {
-	var authUserMenu [][]tb.InlineButton
-	authUserMenu = append(authUserMenu,
-		[]tb.InlineButton{authUGSopranoBtn, authUGContraltoBtn},
-		[]tb.InlineButton{authUGTenoreBtn, authUGBassoBtn},
-		[]tb.InlineButton{authUGCommissarioBtn, authUGReferenteBtn, authUGPreparatoreBtn},
+func getUserGroupMenu() [][]tb.InlineButton {
+	var ugMenu [][]tb.InlineButton
+	ugMenu = append(ugMenu,
+		[]tb.InlineButton{ugSopranoBtn, ugContraltoBtn},
+		[]tb.InlineButton{ugTenoreBtn, ugBassoBtn},
+		[]tb.InlineButton{ugCommissarioBtn, ugReferenteBtn, ugPreparatoreBtn},
 		[]tb.InlineButton{backBtn},
 	)
-	return authUserMenu
+	return ugMenu
 }
 
-func groupCallback(c *tb.Callback, group userGroup) {
+func ugBtnCallback(c *tb.Callback, group userGroup) {
 	dataContent := strings.Split(c.Data, "+")
-	userID, err := strconv.Atoi(dataContent[0])
-	if err != nil {
-		log.Printf("Error converting string to int: %v", err)
+	if len(dataContent) <= 1 {
+		log.Printf("Error: too few arguments")
 		return
 	}
-	var errAlert, authAlert string
-	var add bool
+	var userID int
+	var msgID int64
+	var errAlert, successAlert string
+	auth, deAuth, sendUg := false, false, false
 
 	groupName, err := getGroupName(group)
 
-	if len(dataContent) > 1 && dataContent[1] == "remove" {
-		add = false
+	if dataContent[1] == "deAuth" {
+		deAuth = true
 		errAlert = "Impossibile deautorizzare l'utente per il gruppo " + groupName
-		authAlert = "Utente " + dataContent[0] + " rimosso dal gruppo " + groupName
-	} else {
-		add = true
+		successAlert = "Utente " + dataContent[0] + " rimosso dal gruppo " + groupName
+		userID, err = strconv.Atoi(dataContent[0])
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+			return
+		}
+	} else if dataContent[1] == "auth" {
+		auth = true
 		errAlert = "Impossibile aggiungere l'utente al gruppo " + groupName
-		authAlert = "Utente " + dataContent[0] + " aggiunto al gruppo " + groupName
+		successAlert = "Utente " + dataContent[0] + " aggiunto al gruppo " + groupName
+		userID, err = strconv.Atoi(dataContent[0])
+		if err != nil {
+			log.Printf("Error converting string to int: %v", err)
+			return
+		}
+	} else if dataContent[1] == "sendUg" {
+		sendUg = true
+		errAlert = "Impossibile aggiungere il gruppo " + groupName + " alla lista dei destinatari"
+		successAlert = "Gruppo " + groupName + " aggiunto alla lista dei destinatari"
+		msgID, err = strconv.ParseInt(dataContent[0], 10, 64)
+		if err != nil {
+			log.Printf("Error converting msgID to int64: %v", err)
+			return
+		}
 	}
-	err = addUserGroupCmd(userID, group, add)
-	if err != nil {
-		bot.Respond(c, &tb.CallbackResponse{
-			Text:      errAlert,
-			ShowAlert: true,
-		})
-	} else {
-		bot.Respond(c, &tb.CallbackResponse{
-			Text:      authAlert,
-			ShowAlert: true,
-		})
-		if add {
-			authUserCmd(c.Sender, dataContent[0], false)
+	if auth || deAuth {
+		err = addUserGroupCmd(userID, group, auth)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      errAlert,
+				ShowAlert: true,
+			})
 		} else {
-			deAuthUserCmd(c.Sender, dataContent[0], false)
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      successAlert,
+				ShowAlert: true,
+			})
+			if auth {
+				authUserCmd(c.Sender, dataContent[0], false)
+			} else if deAuth {
+				deAuthUserCmd(c.Sender, dataContent[0], false)
+			}
+		}
+	} else if sendUg {
+		err = addUGToGroupMsg(msgID, group)
+		if err != nil {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      errAlert,
+				ShowAlert: true,
+			})
+		} else {
+			bot.Respond(c, &tb.CallbackResponse{
+				Text:      successAlert,
+				ShowAlert: true,
+			})
 		}
 	}
 }
@@ -216,7 +251,6 @@ func setBotCallbacks() error {
 		sendMsgWithMenu(c.Sender, menuMsg, false)
 	})
 
-	//TODO
 	bot.Handle(&confirmSendBtn, func(c *tb.Callback) {
 		bot.Respond(c, &tb.CallbackResponse{
 			Text:      sentStartedMsg,
@@ -240,32 +274,32 @@ func setBotCallbacks() error {
 		sendMsgWithMenu(c.Sender, sendMsgHowToMsg, false)
 	})
 
-	bot.Handle(&authUGSopranoBtn, func(c *tb.Callback) {
-		groupCallback(c, ugSoprano)
+	bot.Handle(&ugSopranoBtn, func(c *tb.Callback) {
+		ugBtnCallback(c, ugSoprano)
 	})
 
-	bot.Handle(&authUGContraltoBtn, func(c *tb.Callback) {
-		groupCallback(c, ugContralto)
+	bot.Handle(&ugContraltoBtn, func(c *tb.Callback) {
+		ugBtnCallback(c, ugContralto)
 	})
 
-	bot.Handle(&authUGTenoreBtn, func(c *tb.Callback) {
-		groupCallback(c, ugTenore)
+	bot.Handle(&ugTenoreBtn, func(c *tb.Callback) {
+		ugBtnCallback(c, ugTenore)
 	})
 
-	bot.Handle(&authUGBassoBtn, func(c *tb.Callback) {
-		groupCallback(c, ugBasso)
+	bot.Handle(&ugBassoBtn, func(c *tb.Callback) {
+		ugBtnCallback(c, ugBasso)
 	})
 
-	bot.Handle(&authUGCommissarioBtn, func(c *tb.Callback) {
-		groupCallback(c, ugCommissario)
+	bot.Handle(&ugCommissarioBtn, func(c *tb.Callback) {
+		ugBtnCallback(c, ugCommissario)
 	})
 
-	bot.Handle(&authUGReferenteBtn, func(c *tb.Callback) {
-		groupCallback(c, ugReferente)
+	bot.Handle(&ugReferenteBtn, func(c *tb.Callback) {
+		ugBtnCallback(c, ugReferente)
 	})
 
-	bot.Handle(&authUGPreparatoreBtn, func(c *tb.Callback) {
-		groupCallback(c, ugPreparatore)
+	bot.Handle(&ugPreparatoreBtn, func(c *tb.Callback) {
+		ugBtnCallback(c, ugPreparatore)
 	})
 
 	return nil

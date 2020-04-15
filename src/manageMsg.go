@@ -10,11 +10,11 @@ import (
 )
 
 type groupMsg struct {
-	SenderID int       `sql:"sender_id" json:"sender_id"`
-	Group    userGroup `sql:"group" json:"group"`
-	Msg      string    `sql:"msg" json:"msg"`
-	Date     time.Time `sql:"date" json:"date"`
-	Sent     bool      `sql:"sent" json:"sent"`
+	SenderID int         `sql:"sender_id" json:"sender_id"`
+	Group    []userGroup `sql:"group" json:"group"`
+	Msg      string      `sql:"msg" json:"msg"`
+	Date     time.Time   `sql:"date" json:"date"`
+	Sent     bool        `sql:"sent" json:"sent"`
 }
 
 func modifyPrevMsg(userID int, storedMsg *tb.StoredMessage, newMsg string, newOptions *tb.SendOptions) error {
@@ -146,7 +146,7 @@ func sendMsgWithSpecificMenu(user *tb.User, msg string, menu [][]tb.InlineButton
 	return nil
 }
 
-func addNewGroupMsg(sender *tb.User, group userGroup, msg string) (int64, error) {
+func addNewGroupMsg(sender *tb.User, group []userGroup, msg string) (int64, error) {
 	newGroupMsg := groupMsg{sender.ID, group, msg, time.Now(), false}
 	jsonMsg, err := json.Marshal(newGroupMsg)
 	if err != nil {
@@ -162,17 +162,35 @@ func addNewGroupMsg(sender *tb.User, group userGroup, msg string) (int64, error)
 	return msgID - 1, nil
 }
 
-func setGroupMsg(msg *groupMsg, index int64) error {
+func setGroupMsg(msg *groupMsg, msgID int64) error {
 	jsonMsg, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Error in marshalling groupMsg to json: %v", err)
 		return ErrJSONMarshall
 	}
-	err = redisClient.LSet(groupMsgs, index, jsonMsg).Err()
+	err = redisClient.LSet(groupMsgs, msgID, jsonMsg).Err()
 	if err != nil {
 		log.Printf("Error modifying a groupMsg: %v", err)
 		return ErrRedisSetList
 	}
+	return nil
+}
+
+func addUGToGroupMsg(msgID int64, group userGroup) error {
+	msg, err := redisClient.LIndex(groupMsgs, msgID).Result()
+	if err != nil {
+		log.Printf("Error retriving group message from hash: %v", err)
+		return ErrRedisRetrieveHash
+	}
+	jsonMsg := &groupMsg{}
+	err = json.Unmarshal([]byte(msg), jsonMsg)
+	if err != nil {
+		log.Printf("Error unmarshalling groupMsg: %v", err)
+		return ErrJSONUnmarshall
+	}
+	jsonMsg.Group = append(jsonMsg.Group, group)
+	setGroupMsg(jsonMsg, msgID)
+
 	return nil
 }
 
@@ -193,34 +211,47 @@ func sendMsgToGroup(msgID string) error {
 		log.Printf("Error unmarshalling groupMsg: %v", err)
 		return ErrJSONUnmarshall
 	}
-	if jsonMsg.Sent {
-		return ErrSendMsg
-	}
 	sender, err := getUserInfo(jsonMsg.SenderID)
 	if err != nil {
 		log.Printf("Error retrieving sender info: %v", err)
 		return ErrGetUser
 	}
-	users, err := getUsersInGroup(jsonMsg.Group)
-	if err != nil {
-		log.Printf("Error retrieving users in sendTo group: %v", err)
-		return ErrGroupInvalid
+	if jsonMsg.Sent {
+		err = sendMsgWithMenu(sender, "Il messaggio é giá stato inviato!", false)
+		if err != nil {
+			log.Printf("Error sending msg to sender: %v", err)
+			return ErrSendMsg
+		}
+
+	} else {
+		err = sendMsg(sender, "Inizio invio massivo", false)
+		if err != nil {
+			log.Printf("Error sending msg to sender: %v", err)
+			return ErrSendMsg
+		}
 	}
-	for _, userID := range users {
-		user, err := getUserInfo(userID)
+	for _, group := range jsonMsg.Group {
+		users, err := getUsersInGroup(group)
 		if err != nil {
-			log.Printf("Error retrieving user info from id: %v", err)
-			continue
+			log.Printf("Error retrieving users in sendTo group: %v", err)
+			return ErrGroupInvalid
 		}
-		groupName, _ := getGroupName(jsonMsg.Group)
-		msg = "*Messaggio inviato da " + sender.FirstName + " a tutta la sezione " + groupName + "*\n" + jsonMsg.Msg
-		err = sendMsg(user, msg, true)
-		if err != nil {
-			log.Printf("Error sending msg to user: %v", err)
-		}
-		err = sendMsgWithMenu(user, msgReceivedMsg, true)
-		if err != nil {
-			log.Printf("Error sending msg to user: %v", err)
+		for _, userID := range users {
+			user, err := getUserInfo(userID)
+			if err != nil {
+				log.Printf("Error retrieving user info from id: %v", err)
+				continue
+			}
+			groupName, _ := getGroupName(group)
+			msg = "*Messaggio inviato da " + sender.FirstName + " a tutta la sezione " + groupName + "*\n" + jsonMsg.Msg
+			err = sendMsg(user, msg, true)
+			if err != nil {
+				log.Printf("Error sending msg to user: %v", err)
+			}
+			err = sendMsgWithMenu(user, msgReceivedMsg, true)
+			if err != nil {
+				log.Printf("Error sending msg to user: %v", err)
+			}
 		}
 	}
 
@@ -231,7 +262,7 @@ func sendMsgToGroup(msgID string) error {
 		log.Printf("Error updating groupMsg after send: %v", err)
 	}
 
-	err = sendMsgWithMenu(sender, "Messaggio inviato a tutti i componenti della sezione", false)
+	err = sendMsgWithMenu(sender, "Messaggio inviato a tutti i componenti delle sezioni indicate", false)
 	if err != nil {
 		log.Printf("Error sending msg to sender: %v", err)
 	}

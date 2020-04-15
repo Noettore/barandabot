@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"strconv"
-	"strings"
 
 	tb "gopkg.in/tucnak/telebot.v2"
 )
@@ -116,14 +115,14 @@ func authUserCmd(sender *tb.User, payload string, newMsg bool) {
 			log.Printf("Error retriving user groups: %v", err)
 		}
 
-		menu := getAuthUserMenu()
-		menu[0][0].Data = strconv.Itoa(user.ID)
-		menu[0][1].Data = strconv.Itoa(user.ID)
-		menu[1][0].Data = strconv.Itoa(user.ID)
-		menu[1][1].Data = strconv.Itoa(user.ID)
-		menu[2][0].Data = strconv.Itoa(user.ID)
-		menu[2][1].Data = strconv.Itoa(user.ID)
-		menu[2][2].Data = strconv.Itoa(user.ID)
+		menu := getUserGroupMenu()
+		menu[0][0].Data = strconv.Itoa(user.ID) + "+auth"
+		menu[0][1].Data = strconv.Itoa(user.ID) + "+auth"
+		menu[1][0].Data = strconv.Itoa(user.ID) + "+auth"
+		menu[1][1].Data = strconv.Itoa(user.ID) + "+auth"
+		menu[2][0].Data = strconv.Itoa(user.ID) + "+auth"
+		menu[2][1].Data = strconv.Itoa(user.ID) + "+auth"
+		menu[2][2].Data = strconv.Itoa(user.ID) + "+auth"
 
 		for _, group := range userGroups {
 			switch group {
@@ -176,14 +175,14 @@ func deAuthUserCmd(sender *tb.User, payload string, newMsg bool) {
 			log.Printf("Error retriving user description: %v", err)
 		}
 
-		menu := getAuthUserMenu()
-		menu[0][0].Data = strconv.Itoa(user.ID) + "+remove"
-		menu[0][1].Data = strconv.Itoa(user.ID) + "+remove"
-		menu[1][0].Data = strconv.Itoa(user.ID) + "+remove"
-		menu[1][1].Data = strconv.Itoa(user.ID) + "+remove"
-		menu[2][0].Data = strconv.Itoa(user.ID) + "+remove"
-		menu[2][1].Data = strconv.Itoa(user.ID) + "+remove"
-		menu[2][2].Data = strconv.Itoa(user.ID) + "+remove"
+		menu := getUserGroupMenu()
+		menu[0][0].Data = strconv.Itoa(user.ID) + "+deAuth"
+		menu[0][1].Data = strconv.Itoa(user.ID) + "+deAuth"
+		menu[1][0].Data = strconv.Itoa(user.ID) + "+deAuth"
+		menu[1][1].Data = strconv.Itoa(user.ID) + "+deAuth"
+		menu[2][0].Data = strconv.Itoa(user.ID) + "+deAuth"
+		menu[2][1].Data = strconv.Itoa(user.ID) + "+deAuth"
+		menu[2][2].Data = strconv.Itoa(user.ID) + "+deAuth"
 
 		if is, _ := isUserInGroup(user.ID, ugSoprano); !is {
 			menu[0][0].Text = ""
@@ -291,40 +290,50 @@ func helpCmd(user *tb.User, newMsg bool) {
 }
 
 func sendMsgCmd(sender *tb.User, payload string, newMsg bool) {
-	arg := strings.SplitN(payload, " ", 2)
-	if payload == "" || len(arg) != 2 || arg[1] == "" || arg[1] == " " {
+	if payload == "" {
 		err := sendMsgWithMenu(sender, sendMsgHowToMsg, newMsg)
 		if err != nil {
 			log.Printf("Error in sending message: %v", err)
 		}
 	} else {
-		group, err := getUserGroupFromStr(arg[0])
+		msgID, err := addNewGroupMsg(sender, []userGroup{}, payload)
 		if err != nil {
-			log.Printf("Error in parsing the userGroup: %v", err)
+			log.Printf("Error adding new groupMsg in db: %v", err)
 			return
+		}
+		menu := getUserGroupMenu()
+		menu[3] = append(menu[3], confirmSendBtn)
+		menu[0][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+		menu[0][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+		menu[1][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+		menu[1][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+		menu[2][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+		menu[2][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+		menu[2][2].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+		menu[3][1].Data = strconv.FormatInt(msgID, 10)
+		if is, _ := isUserInGroup(sender.ID, ugSoprano); !is {
+			menu[0][0].Text = ""
+		}
+		if is, _ := isUserInGroup(sender.ID, ugContralto); !is {
+			menu[0][1].Text = ""
+		}
+		if is, _ := isUserInGroup(sender.ID, ugTenore); !is {
+			menu[1][0].Text = ""
+		}
+		if is, _ := isUserInGroup(sender.ID, ugBasso); !is {
+			menu[1][1].Text = ""
+		}
+		if is, _ := isUserInGroup(sender.ID, ugCommissario); !is {
+			menu[2][0].Text = ""
+		}
+		if is, _ := isUserInGroup(sender.ID, ugReferente); !is {
+			menu[2][1].Text = ""
+		}
+		if is, _ := isUserInGroup(sender.ID, ugPreparatore); !is {
+			menu[2][2].Text = ""
 		}
 
-		is, err := isUserInGroup(sender.ID, group)
-		if err != nil {
-			log.Printf("Error checking if sender is in sendTo group: %v", err)
-			return
-		}
-		if is {
-			ugName, _ := getGroupName(group)
-			//sendMsgToGroup(sender, group, arg[1])
-			msgID, err := addNewGroupMsg(sender, group, arg[1])
-			if err != nil {
-				log.Printf("Error adding new groupMsg in db: %v", err)
-				return
-			}
-			msg := "*Sei sicuro di voler inviare il seguente messaggio al gruppo " + ugName + "?*\n" + arg[1]
-			sendMsgMenu[0][0].Data = strconv.FormatInt(msgID, 10)
-			sendMsgWithSpecificMenu(sender, msg, sendMsgMenu, true)
-		} else {
-			err = sendMsgWithMenu(sender, sendMsgErrMsg, true)
-			if err != nil {
-				log.Printf("Error sending msg to user: %v", err)
-			}
-		}
+		msg := "*Il messaggio che stai per inviare é *\n" + payload + "\n*Seleziona i gruppi a cui vuoi inviarlo*"
+		sendMsgWithSpecificMenu(sender, msg, menu, true)
 	}
 }
