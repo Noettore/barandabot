@@ -10,11 +10,11 @@ import (
 )
 
 type groupMsg struct {
-	SenderID int         `sql:"sender_id" json:"sender_id"`
-	Group    []userGroup `sql:"group" json:"group"`
-	Msg      string      `sql:"msg" json:"msg"`
-	Date     time.Time   `sql:"date" json:"date"`
-	Sent     bool        `sql:"sent" json:"sent"`
+	SenderID int                `sql:"sender_id" json:"sender_id"`
+	Group    map[userGroup]bool `sql:"group" json:"group"`
+	Msg      string             `sql:"msg" json:"msg"`
+	Date     time.Time          `sql:"date" json:"date"`
+	Sent     bool               `sql:"sent" json:"sent"`
 }
 
 func modifyPrevMsg(userID int, storedMsg *tb.StoredMessage, newMsg string, newOptions *tb.SendOptions) error {
@@ -65,6 +65,39 @@ func getLastMsgPerUser(userID int) (*tb.StoredMessage, error) {
 		return nil, ErrJSONUnmarshall
 	}
 	return jsonMsg, nil
+}
+
+func editLastMsgInlineKeyboard(user *tb.User, menu [][]tb.InlineButton) error {
+	storedMsg, err := getLastMsgPerUser(user.ID)
+	if err != nil {
+		log.Printf("Error retriving last message per user: %v", err)
+		sentMsg, err := bot.Send(user, "", &tb.SendOptions{
+			ReplyMarkup:           &tb.ReplyMarkup{InlineKeyboard: menu},
+			DisableWebPagePreview: true,
+			ParseMode:             tb.ModeMarkdown,
+		})
+		if err != nil {
+			log.Printf("Error sending message to user: %v", err)
+			return ErrSendMsg
+		}
+		err = setLastMsgPerUser(user.ID, sentMsg)
+		if err != nil {
+			log.Printf("Error setting last msg per user: %v", err)
+			return ErrSetLastMsg
+		}
+	}
+
+	msg, err := bot.EditReplyMarkup(storedMsg, &tb.ReplyMarkup{InlineKeyboard: menu})
+	if err != nil {
+		log.Printf("Error modifying previous message inlineKeyboard: %v", err)
+		return ErrSendMsg
+	}
+	err = setLastMsgPerUser(user.ID, msg)
+	if err != nil {
+		log.Printf("Error setting last msg per user: %v", err)
+		return ErrSetLastMsg
+	}
+	return nil
 }
 
 func sendMsg(user *tb.User, msg string, new bool) error {
@@ -146,7 +179,7 @@ func sendMsgWithSpecificMenu(user *tb.User, msg string, menu [][]tb.InlineButton
 	return nil
 }
 
-func addNewGroupMsg(sender *tb.User, group []userGroup, msg string) (int64, error) {
+func addNewGroupMsg(sender *tb.User, group map[userGroup]bool, msg string) (int64, error) {
 	newGroupMsg := groupMsg{sender.ID, group, msg, time.Now(), false}
 	jsonMsg, err := json.Marshal(newGroupMsg)
 	if err != nil {
@@ -176,7 +209,7 @@ func setGroupMsg(msg *groupMsg, msgID int64) error {
 	return nil
 }
 
-func addUGToGroupMsg(msgID int64, group userGroup) error {
+func setUGInGroupMsg(msgID int64, group userGroup) error {
 	msg, err := redisClient.LIndex(groupMsgs, msgID).Result()
 	if err != nil {
 		log.Printf("Error retriving group message from hash: %v", err)
@@ -188,10 +221,32 @@ func addUGToGroupMsg(msgID int64, group userGroup) error {
 		log.Printf("Error unmarshalling groupMsg: %v", err)
 		return ErrJSONUnmarshall
 	}
-	jsonMsg.Group = append(jsonMsg.Group, group)
+
+	_, present := jsonMsg.Group[group]
+	if !present {
+		jsonMsg.Group[group] = true
+	} else {
+		jsonMsg.Group[group] = !jsonMsg.Group[group]
+	}
+
 	setGroupMsg(jsonMsg, msgID)
 
 	return nil
+}
+
+func getUGInGroupMsg(msgID int64) (map[userGroup]bool, error) {
+	msg, err := redisClient.LIndex(groupMsgs, msgID).Result()
+	if err != nil {
+		log.Printf("Error retriving group message from hash: %v", err)
+		return nil, ErrRedisRetrieveHash
+	}
+	jsonMsg := &groupMsg{}
+	err = json.Unmarshal([]byte(msg), jsonMsg)
+	if err != nil {
+		log.Printf("Error unmarshalling groupMsg: %v", err)
+		return nil, ErrJSONUnmarshall
+	}
+	return jsonMsg.Group, nil
 }
 
 func sendMsgToGroup(msgID string) error {
@@ -230,7 +285,10 @@ func sendMsgToGroup(msgID string) error {
 			return ErrSendMsg
 		}
 	}
-	for _, group := range jsonMsg.Group {
+	for group, is := range jsonMsg.Group {
+		if !is {
+			continue
+		}
 		users, err := getUsersInGroup(group)
 		if err != nil {
 			log.Printf("Error retrieving users in sendTo group: %v", err)

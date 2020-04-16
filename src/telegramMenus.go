@@ -140,6 +140,93 @@ func getUserGroupMenu() [][]tb.InlineButton {
 	return ugMenu
 }
 
+func getGroupMsgMenu(msgID int64, sender *tb.User) [][]tb.InlineButton {
+	menu := getUserGroupMenu()
+	menu[3] = append([]tb.InlineButton{confirmSendBtn}, menu[3]...)
+	menu[0][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+	menu[0][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+	menu[1][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+	menu[1][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+	menu[2][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+	menu[2][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+	menu[2][2].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
+	menu[3][0].Data = strconv.FormatInt(msgID, 10)
+	if is, _ := isUserInGroup(sender.ID, ugSoprano); !is {
+		menu[0][0].Text = ""
+	}
+	if is, _ := isUserInGroup(sender.ID, ugContralto); !is {
+		menu[0][1].Text = ""
+	}
+	if is, _ := isUserInGroup(sender.ID, ugTenore); !is {
+		menu[1][0].Text = ""
+	}
+	if is, _ := isUserInGroup(sender.ID, ugBasso); !is {
+		menu[1][1].Text = ""
+	}
+	if is, _ := isUserInGroup(sender.ID, ugCommissario); !is {
+		menu[2][0].Text = ""
+	}
+	if is, _ := isUserInGroup(sender.ID, ugReferente); !is {
+		menu[2][1].Text = ""
+	}
+	if is, _ := isUserInGroup(sender.ID, ugPreparatore); !is {
+		menu[2][2].Text = ""
+	}
+
+	ugInGroupMsg, err := getUGInGroupMsg(msgID)
+	if err != nil {
+		log.Printf("Error retrieving group to send groupMsg: %v", err)
+	}
+	for group, is := range ugInGroupMsg {
+		switch group {
+		case ugSoprano:
+			if is {
+				menu[0][0].Text = "*" + menu[0][0].Text + "*"
+			} else {
+				strings.Replace(menu[0][0].Text, "*", "", -1)
+			}
+		case ugContralto:
+			if is {
+				menu[0][1].Text = "*" + menu[0][1].Text + "*"
+			} else {
+				strings.Replace(menu[0][1].Text, "*", "", -1)
+			}
+		case ugTenore:
+			if is {
+				menu[1][0].Text = "*" + menu[1][0].Text + "*"
+			} else {
+				strings.Replace(menu[1][0].Text, "*", "", -1)
+			}
+		case ugBasso:
+			if is {
+				menu[1][1].Text = "*" + menu[1][1].Text + "*"
+			} else {
+				strings.Replace(menu[1][1].Text, "*", "", -1)
+			}
+		case ugCommissario:
+			if is {
+				menu[2][0].Text = "*" + menu[2][0].Text + "*"
+			} else {
+				strings.Replace(menu[2][0].Text, "*", "", -1)
+			}
+		case ugReferente:
+			if is {
+				menu[2][1].Text = "*" + menu[2][1].Text + "*"
+			} else {
+				strings.Replace(menu[2][1].Text, "*", "", -1)
+			}
+		case ugPreparatore:
+			if is {
+				menu[2][2].Text = "*" + menu[2][2].Text + "*"
+			} else {
+				strings.Replace(menu[2][2].Text, "*", "", -1)
+			}
+		}
+	}
+
+	return menu
+}
+
 func ugBtnCallback(c *tb.Callback, group userGroup) {
 	dataContent := strings.Split(c.Data, "+")
 	if len(dataContent) <= 1 {
@@ -200,7 +287,7 @@ func ugBtnCallback(c *tb.Callback, group userGroup) {
 			}
 		}
 	} else if sendUg {
-		err = addUGToGroupMsg(msgID, group)
+		err = setUGInGroupMsg(msgID, group)
 		if err != nil {
 			bot.Respond(c, &tb.CallbackResponse{
 				Text:      errAlert,
@@ -212,6 +299,7 @@ func ugBtnCallback(c *tb.Callback, group userGroup) {
 				ShowAlert: true,
 			})
 		}
+		err = editLastMsgInlineKeyboard(c.Sender, getGroupMsgMenu(msgID, c.Sender))
 	}
 }
 

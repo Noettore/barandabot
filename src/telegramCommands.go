@@ -296,42 +296,12 @@ func sendMsgCmd(sender *tb.User, payload string, newMsg bool) {
 			log.Printf("Error in sending message: %v", err)
 		}
 	} else {
-		msgID, err := addNewGroupMsg(sender, []userGroup{}, payload)
+		msgID, err := addNewGroupMsg(sender, map[userGroup]bool{}, payload)
 		if err != nil {
 			log.Printf("Error adding new groupMsg in db: %v", err)
 			return
 		}
-		menu := getUserGroupMenu()
-		menu[3] = append(menu[3], confirmSendBtn)
-		menu[0][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
-		menu[0][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
-		menu[1][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
-		menu[1][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
-		menu[2][0].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
-		menu[2][1].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
-		menu[2][2].Data = strconv.FormatInt(msgID, 10) + "+sendUg"
-		menu[3][1].Data = strconv.FormatInt(msgID, 10)
-		if is, _ := isUserInGroup(sender.ID, ugSoprano); !is {
-			menu[0][0].Text = ""
-		}
-		if is, _ := isUserInGroup(sender.ID, ugContralto); !is {
-			menu[0][1].Text = ""
-		}
-		if is, _ := isUserInGroup(sender.ID, ugTenore); !is {
-			menu[1][0].Text = ""
-		}
-		if is, _ := isUserInGroup(sender.ID, ugBasso); !is {
-			menu[1][1].Text = ""
-		}
-		if is, _ := isUserInGroup(sender.ID, ugCommissario); !is {
-			menu[2][0].Text = ""
-		}
-		if is, _ := isUserInGroup(sender.ID, ugReferente); !is {
-			menu[2][1].Text = ""
-		}
-		if is, _ := isUserInGroup(sender.ID, ugPreparatore); !is {
-			menu[2][2].Text = ""
-		}
+		menu := getGroupMsgMenu(msgID, sender)
 
 		msg := "*Il messaggio che stai per inviare é *\n" + payload + "\n*Seleziona i gruppi a cui vuoi inviarlo*"
 		sendMsgWithSpecificMenu(sender, msg, menu, true)
